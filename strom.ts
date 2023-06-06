@@ -1,12 +1,21 @@
 import { makeBatch } from "./batch.ts";
 import { makeBuffer } from "./buffer.ts";
+import { makeDrop } from "./drop.ts";
+import { makeDropWhile } from "./drop_while.ts";
 import { makeFilter } from "./filter.ts";
 import { makeFlatMap } from "./flat_map.ts";
+import { makeHead } from "./head.ts";
+import { makeInit } from "./init.ts";
+import { makeLast } from "./last.ts";
 import { makeLog } from "./log.ts";
 import { makeMap } from "./map.ts";
 import { makepeek } from "./peek.ts";
+import { makePop } from "./pop.ts";
 import { type Handle, makeRun } from "./run.ts";
 import { type StromSource, toIterable } from "./source.ts";
+import { makeTail } from "./tail.ts";
+import { makeTake } from "./take.ts";
+import { makeTakeWhile } from "./take_while.ts";
 
 export { type Completion, type Handle } from "./run.ts";
 export { type StromSource } from "./source.ts";
@@ -42,16 +51,25 @@ export interface Strom<E> extends AsyncIterable<E> {
    */
   batch(count: number): Strom<E[]>;
 
-  /** Gets the first element of the strom. */
-  head(): Promise<E>;
+  /**
+   * Gets the first element of the strom. Returns `undefined` if the strom has
+   * no elements.
+   */
+  head(): Promise<E | undefined>;
   /** Drops the first element of the strom. */
   tail(): Strom<E>;
   /** Drops the last element of the strom. */
   init(): Strom<E>;
-  /** Gets the last element of the strom. */
-  last(): Promise<E>;
-  /** Decomposes a strom into its first element and the remaining strom. */
-  pop(): Promise<[E, Strom<E>]>;
+  /**
+   * Gets the last element of the strom. Returns `undefined` if the strom has
+   * no elements.
+   */
+  last(): Promise<E | undefined>;
+  /**
+   * Decomposes a strom into its first element and the remaining strom. Returns
+   * a pair of `undefined` and the empty strom if the strom has no elements.
+   */
+  pop(): Promise<[E | undefined, Strom<E>]>;
   /**
    * Limits the strom to the given number of elements, dropping all others.
    *
@@ -60,11 +78,12 @@ export interface Strom<E> extends AsyncIterable<E> {
   take(count: number): Strom<E>;
   /**
    * Returns the longest prefix of the strom which contains elements that
-   * satisfy a given predicate.
+   * satisfy a given predicate, or elements that are not nullish if no predicate
+   * was specified.
    *
    * @param predicate A predicate determining the prefix
    */
-  takeWhile(predicate: (e: E) => boolean | Promise<boolean>): Strom<E>;
+  takeWhile(predicate?: (e: E) => boolean | Promise<boolean>): Strom<E>;
   /**
    * Drops the first given number of elements.
    *
@@ -73,11 +92,12 @@ export interface Strom<E> extends AsyncIterable<E> {
   drop(count: number): Strom<E>;
   /**
    * Returns the longest prefix of the strom which contains elements that do not
-   * satisfy a given predicate.
+   * satisfy a given predicate, or elements that are nullish if no predicate was
+   * specified.
    *
    * @param predicate A predicate determining the prefix
    */
-  dropWhile(predicate: (e: E) => boolean | Promise<boolean>): Strom<E>;
+  dropWhile(predicate?: (e: E) => boolean | Promise<boolean>): Strom<E>;
   /**
    * Returns a pair of two stroms. The first strom contains as many elements as
    * specified. The second strom contains all remaining elements.
@@ -200,7 +220,8 @@ export interface Strom<E> extends AsyncIterable<E> {
   toArray(buffer?: E[]): Promise<E[]>;
   /**
    * Concatenates all string elements of the strom. Requires the strom to be a
-   * strom of string elements.
+   * strom of string elements. Returns the empty string if the strom has no
+   * elements.
    */
   toString(): E extends string ? Promise<string> : never;
 
@@ -321,26 +342,30 @@ export interface Strom<E> extends AsyncIterable<E> {
   contains(e: E): Promise<boolean>;
   /**
    * Returns the largest element of the strom. Uses `String#localeCompare` if
-   * the strom is a strom of string elements. Uses `<` otherwise.
+   * the strom is a strom of string elements. Uses `<` otherwise. Returns
+   * `undefined` if the strom has no elements.
    *
    * @param compare An optional comparison function
    */
   max(compare?: (l: E, r: E) => number): Promise<E>;
   /**
    * Returns the smallest element of the strom. Uses `String#localeCompare` if
-   * the strom is a strom of string elements. Uses `<` otherwise.
+   * the strom is a strom of string elements. Uses `<` otherwise. Returns
+   * `undefined` if the strom has no elements.
    *
    * @param compare An optional comparison function
    */
   min(compare?: (l: E, r: E) => number): Promise<E>;
   /**
    * Sums up all values of the strom using `+` on whatever values are in the
-   * strom.
+   * strom. Returns
+   * `undefined` if the strom has no elements.
    */
   sum(): Promise<E>;
   /**
    * Multiplies all values of the strom using `*` on whatever values are in the
-   * strom.
+   * strom. Returns
+   * `undefined` if the strom has no elements.
    */
   product(): Promise<E>;
   /**
@@ -402,42 +427,83 @@ function makeStrom<E>(
     return strom;
   }
 
-  const filter = makeFilter(source);
-  const batch = makeBatch(source);
-  const map = makeMap(source);
-  const flatMap = makeFlatMap(source);
-  const buffer = makeBuffer(source);
-  const peek = makepeek(source);
-  const log = makeLog(source);
-  const run = makeRun(source);
-
-  const strom: Strom<E> = {
+  return {
+    async head(...args) {
+      const head = makeHead(source);
+      return await head(...args);
+    },
+    tail(...args) {
+      const tail = makeTail(source);
+      return toStrom(tail(...args));
+    },
+    init(...args) {
+      const init = makeInit(source);
+      return toStrom(init(...args));
+    },
+    async last(...args) {
+      const last = makeLast(source);
+      return await last(...args);
+    },
+    async pop(...args) {
+      const pop = makePop(source);
+      const [first, rest] = await pop(...args);
+      return [first, toStrom(rest)];
+    },
+    take(...args) {
+      const take = makeTake(source);
+      return toStrom(take(...args));
+    },
+    takeWhile(...args) {
+      const takeWhile = makeTakeWhile(source);
+      return toStrom(takeWhile(...args));
+    },
+    drop(...args) {
+      const drop = makeDrop(source);
+      return toStrom(drop(...args));
+    },
+    dropWhile(...args) {
+      const dropWhile = makeDropWhile(source);
+      return toStrom(dropWhile(...args));
+    },
+    splitAt(...args) {
+      const splitAt = makeSplitAt(source);
+      const [before, after] = splitAt(...args);
+      return [toStrom(before), toStrom(after)];
+    },
     filter(...args: []) {
+      const filter = makeFilter(source);
       return toStrom(filter(...args)) as Strom<NonNullable<E>>;
     },
     batch(...args) {
+      const batch = makeBatch(source);
       return toStrom(batch(...args));
     },
     map(...args) {
+      const map = makeMap(source);
       return toStrom(map(...args));
     },
     flatMap(...args) {
+      const flatMap = makeFlatMap(source);
       return toStrom(flatMap(...args));
     },
     buffer(...args) {
+      const buffer = makeBuffer(source);
       return toStrom(buffer(...args), { ...options, buffer: undefined });
     },
     peek(...args) {
+      const peek = makepeek(source);
       return toStrom(peek(...args));
     },
     log(...args) {
+      const log = makeLog(source);
       return toStrom(log(...args), { ...options, buffer: undefined });
     },
     [Symbol.asyncIterator]() {
       return source[Symbol.asyncIterator]();
     },
-    run,
+    run(...args) {
+      const run = makeRun(source);
+      return run(...args);
+    },
   };
-
-  return strom;
 }
