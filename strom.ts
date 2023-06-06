@@ -350,6 +350,25 @@ export interface Strom<E> extends AsyncIterable<E> {
   find(
     predicate?: (e: E) => boolean | Promise<boolean>,
   ): Promise<E | undefined>;
+  /**
+   * Returns the index of first element that matches a given predicate function,
+   * or `undefined` if no such element is contained in the strom.
+   */
+  findIndex(
+    predicate?: (e: E) => boolean | Promise<boolean>,
+  ): Promise<number | undefined>;
+  /**
+   * Returns a strom with duplicate elements removed. The resulting strom only
+   * contains the first occurrence of each element. The equality comparison is
+   * performed by a given comparison function, or by a `Set` if no comparison
+   * function was given.
+   *
+   * > Note that this method requires a significant memory overhead, as it needs
+   * > to keep previously yielded elements in memory.
+   */
+  unique(
+    compare?: (element: E, other: E) => boolean | Promise<boolean>,
+  ): Strom<E>;
 }
 
 /**
