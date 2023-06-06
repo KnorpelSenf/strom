@@ -8,7 +8,7 @@ export function makeSplitAt<E>(source: AsyncIterable<E>) {
     const itr = source[Symbol.asyncIterator]();
     let i = 0;
     let leftComplete = false;
-    function fetch() {
+    function fetchNext() {
       if (i < index) i++;
       else leftComplete = true;
       return itr.next();
@@ -17,7 +17,7 @@ export function makeSplitAt<E>(source: AsyncIterable<E>) {
     let head: Link<E> | null = null;
     let tail: Link<E> | null = null;
     function push() {
-      const result = fetch();
+      const result = fetchNext();
       const link: Link<E> = { result, next: null, index: i };
       if (tail === null) head = tail = link;
       else tail.next = link;
@@ -26,7 +26,7 @@ export function makeSplitAt<E>(source: AsyncIterable<E>) {
       if (leftComplete) {
         return Promise.resolve({ done: true, value: undefined });
       }
-      if (head === null) return fetch();
+      if (head === null) return fetchNext();
       const element = head.result;
       if (head === tail) head = tail = null;
       else head = head.next;
@@ -34,7 +34,7 @@ export function makeSplitAt<E>(source: AsyncIterable<E>) {
     }
     function pullRight(): Promise<IteratorResult<E>> {
       while (!leftComplete) push();
-      return fetch();
+      return fetchNext();
     }
 
     return [

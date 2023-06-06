@@ -9,14 +9,19 @@ import { makeInit } from "./init.ts";
 import { makeLast } from "./last.ts";
 import { makeLog } from "./log.ts";
 import { makeMap } from "./map.ts";
+import { makePartition } from "./partition.ts";
 import { makepeek } from "./peek.ts";
 import { makePop } from "./pop.ts";
 import { type Handle, makeRun } from "./run.ts";
 import { type StromSource, toIterable } from "./source.ts";
+import { makeSpan } from "./span.ts";
 import { makeSplitAt } from "./split_at.ts";
 import { makeTail } from "./tail.ts";
 import { makeTake } from "./take.ts";
 import { makeTakeWhile } from "./take_while.ts";
+import { makeUnzip } from "./unzip.ts";
+import { makeZip } from "./zip.ts";
+import { makeZipWith } from "./zip_with.ts";
 
 export { type Completion, type Handle } from "./run.ts";
 export { type StromSource } from "./source.ts";
@@ -121,10 +126,10 @@ export interface Strom<E> extends AsyncIterable<E> {
    * the second strom contains all elements that do not satisfy the given
    * predicate.
    *
-   * @param prediate A predicate
+   * @param predicate A predicate
    */
   partition(
-    prediate: (e: E) => boolean | Promise<boolean>,
+    predicate: (e: E) => boolean | Promise<boolean>,
   ): [Strom<E>, Strom<E>];
 
   /**
@@ -149,13 +154,6 @@ export interface Strom<E> extends AsyncIterable<E> {
    * elements of each pair. Requires this strom to be a strom of pairs.
    */
   unzip(): E extends [infer T, infer U] ? [Strom<T>, Strom<U>] : never;
-
-  /**
-   * Enumerates all elements, starting at a given number, or 0 by default.
-   *
-   * @param start A starting index (default: 0)
-   */
-  enumerate(start?: number): Strom<[number, E]>;
 
   /**
    * Turns string elements into Uint8Array elements by encoding them to UTF-8.
@@ -258,14 +256,14 @@ export interface Strom<E> extends AsyncIterable<E> {
    *
    * @param transform A function mapping one value to another
    */
-  map<T>(transform: (element: E) => T | Promise<T>): Strom<T>;
+  map<T>(transform: (element: E, index: number) => T | Promise<T>): Strom<T>;
   /**
    * Turns every element in the strom into many elements using a given transform
    * function, and returns a stream from all those elements.
    *
    * @param transform A function mapping one value to many
    */
-  flatMap<T>(transform: (element: E) => StromSource<T>): Strom<T>;
+  flatMap<T>(transform: (element: E, index: number) => StromSource<T>): Strom<T>;
 
   /**
    * Eagerly buffers as many elements as specified (default: 1).
@@ -301,7 +299,7 @@ export interface Strom<E> extends AsyncIterable<E> {
   count(): Promise<number>;
   /**
    * Tests the elements of the strom against a given predicate function, or
-   * tests them for not being nullish if no prediate was given. Returns `true`
+   * tests them for not being nullish if no predicate was given. Returns `true`
    * as soon as the first element satisfies the predicate, without inspecting
    * any subsequent elements. Returns `false` if no element satisfied the
    * predicate.
@@ -422,83 +420,108 @@ function makeStrom<E>(
   const toStrom = <T>(source: AsyncIterable<T>, opts = options) =>
     makeStrom(source, opts);
 
-  return {
-    async head(...args) {
+  const strom: Strom<E> = {
+    async head() {
       const head = makeHead(source);
-      return await head(...args);
+      return await head();
     },
-    tail(...args) {
+    tail() {
       const tail = makeTail(source);
-      return toStrom(tail(...args));
+      return toStrom(tail());
     },
-    init(...args) {
+    init() {
       const init = makeInit(source);
-      return toStrom(init(...args));
+      return toStrom(init());
     },
-    async last(...args) {
+    async last() {
       const last = makeLast(source);
-      return await last(...args);
+      return await last();
     },
-    async pop(...args) {
+    async pop() {
       const pop = makePop(source);
-      const [first, rest] = await pop(...args);
+      const [first, rest] = await pop();
       return [first, toStrom(rest)];
     },
-    take(...args) {
+    take(count) {
       const take = makeTake(source);
-      return toStrom(take(...args));
+      return toStrom(take(count));
     },
-    takeWhile(...args) {
+    takeWhile(predicate) {
       const takeWhile = makeTakeWhile(source);
-      return toStrom(takeWhile(...args));
+      return toStrom(takeWhile(predicate));
     },
-    drop(...args) {
+    drop(count) {
       const drop = makeDrop(source);
-      return toStrom(drop(...args));
+      return toStrom(drop(count));
     },
-    dropWhile(...args) {
+    dropWhile(predicate) {
       const dropWhile = makeDropWhile(source);
-      return toStrom(dropWhile(...args));
+      return toStrom(dropWhile(predicate));
     },
-    splitAt(...args) {
+    splitAt(index) {
       const splitAt = makeSplitAt(source);
-      const [before, after] = splitAt(...args);
+      const [before, after] = splitAt(index);
       return [toStrom(before), toStrom(after)];
+    },
+    span(predicate) {
+      const span = makeSpan(source);
+      const [before, after] = span(predicate);
+      return [toStrom(before), toStrom(after)];
+    },
+    partition(predicate) {
+      const partition = makePartition(source);
+      const [before, after] = partition(predicate);
+      return [toStrom(before), toStrom(after)];
+    },
+    zip(other) {
+      const zip = makeZip(source);
+      return toStrom(zip(toIterable(other)));
+    },
+    zipWith(other, zipper) {
+      const zipWith = makeZipWith(source);
+      return toStrom(zipWith(toIterable(other), zipper));
+    },
+    unzip() {
+      const unzip = makeUnzip(source);
+      const [left, right] = unzip();
+      // deno-lint-ignore no-explicit-any
+      return [toStrom(left), toStrom(right)] as any;
     },
     filter(...args: []) {
       const filter = makeFilter(source);
       return toStrom(filter(...args)) as Strom<NonNullable<E>>;
     },
-    batch(...args) {
+    batch(count) {
       const batch = makeBatch(source);
-      return toStrom(batch(...args));
+      return toStrom(batch(count));
     },
-    map(...args) {
+    map(transform) {
       const map = makeMap(source);
-      return toStrom(map(...args));
+      return toStrom(map(transform));
     },
-    flatMap(...args) {
+    flatMap(transform) {
       const flatMap = makeFlatMap(source);
-      return toStrom(flatMap(...args));
+      return toStrom(flatMap(transform));
     },
-    buffer(...args) {
+    buffer(size) {
       const buffer = makeBuffer(source);
-      return toStrom(buffer(...args), { ...options, buffer: undefined });
+      return toStrom(buffer(size), { ...options, buffer: undefined });
     },
-    peek(...args) {
+    peek(callback) {
       const peek = makepeek(source);
-      return toStrom(peek(...args));
+      return toStrom(peek(callback));
     },
-    log(...args) {
+    log(logger) {
       const log = makeLog(source);
-      return toStrom(log(...args), { ...options, buffer: undefined });
+      return toStrom(log(logger), { ...options, buffer: undefined });
     },
     [Symbol.asyncIterator]() {
       return source[Symbol.asyncIterator]();
     },
-    run(...args) {
+    run(callback) {
       const run = makeRun(source);
-      return run(...args);
+      return run(callback);
     },
   };
+  return strom;
 }
