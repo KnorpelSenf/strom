@@ -13,6 +13,7 @@ import { makepeek } from "./peek.ts";
 import { makePop } from "./pop.ts";
 import { type Handle, makeRun } from "./run.ts";
 import { type StromSource, toIterable } from "./source.ts";
+import { makeSplitAt } from "./split_at.ts";
 import { makeTail } from "./tail.ts";
 import { makeTake } from "./take.ts";
 import { makeTakeWhile } from "./take_while.ts";
