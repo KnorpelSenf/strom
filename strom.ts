@@ -418,14 +418,8 @@ function makeStrom<E>(
       .buffer(options.buffer);
   }
 
-  function toStrom<T>(source: AsyncIterable<T>, opts = options) {
-    let strom = makeStrom(source, opts);
-    if (opts.buffer !== undefined) {
-      // buffer after subsequent async ops
-      strom = strom.buffer(opts.buffer);
-    }
-    return strom;
-  }
+  const toStrom = <T>(source: AsyncIterable<T>, opts = options) =>
+    makeStrom(source, opts);
 
   return {
     async head(...args) {
