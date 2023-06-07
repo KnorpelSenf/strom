@@ -1,8 +1,11 @@
 export function makepeek<E>(source: AsyncIterable<E>) {
-  return (peek: (element: E) => unknown): AsyncIterable<E> => {
+  return (
+    callback: (element: E, index: number) => unknown,
+  ): AsyncIterable<E> => {
     async function* loop() {
+      let index = 0;
       for await (const element of source) {
-        await peek(element);
+        await callback(element, index++);
         yield element;
       }
     }

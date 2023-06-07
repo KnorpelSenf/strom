@@ -28,7 +28,8 @@ export interface Handle {
 
 export function makeRun<E>(source: AsyncIterable<E>) {
   return (
-    callback: (element: E) => unknown | Promise<unknown> = () => {},
+    callback: (element: E, index: number) => unknown | Promise<unknown> =
+      () => {},
   ): Handle => {
     let state: Handle["state"] = "active";
     let pause: Deferred<void>;
@@ -42,11 +43,10 @@ export function makeRun<E>(source: AsyncIterable<E>) {
       for await (const element of source) {
         if (state === "paused") await pause;
         try {
-          await callback(element);
+          await callback(element, count++);
         } catch (error) {
           handleErr(error);
         }
-        count++;
       }
       state = "closed";
       const result: Completion = { count, done: true };
