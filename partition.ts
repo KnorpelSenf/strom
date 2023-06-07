@@ -4,13 +4,14 @@ interface Link<E> {
 }
 export function makePartition<E>(source: AsyncIterable<E>) {
   return (
-    predicate: (e: E) => boolean | Promise<boolean>,
+    predicate: (element: E, index: number) => boolean | Promise<boolean>,
   ): [AsyncIterable<E>, AsyncIterable<E>] => {
     const itr = source[Symbol.asyncIterator]();
+    let index = 0;
     let op: ReturnType<typeof fetchNext> | undefined;
     async function fetchNext() {
       const result = await itr.next();
-      const left = !result.done && await predicate(result.value);
+      const left = !result.done && await predicate(result.value, index++);
       op = undefined;
       return { result, left };
     }

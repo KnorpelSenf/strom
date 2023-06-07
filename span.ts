@@ -4,14 +4,15 @@ interface Link<E> {
 }
 export function makeSpan<E>(source: AsyncIterable<E>) {
   return (
-    predicate: (e: E) => boolean | Promise<boolean>,
+    predicate: (element: E, index: number) => boolean | Promise<boolean>,
   ): [AsyncIterable<E>, AsyncIterable<E>] => {
     const itr = source[Symbol.asyncIterator]();
+    let index = 0;
     let leftComplete = false;
     let op: ReturnType<typeof fetchNext> | undefined;
     async function fetchNext() {
       const result = await itr.next();
-      leftComplete ||= !result.done && !await predicate(result.value);
+      leftComplete ||= !result.done && !await predicate(result.value, index++);
       op = undefined;
       return result;
     }

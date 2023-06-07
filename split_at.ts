@@ -4,12 +4,12 @@ interface Link<E> {
   index: number;
 }
 export function makeSplitAt<E>(source: AsyncIterable<E>) {
-  return (index: number): [AsyncIterable<E>, AsyncIterable<E>] => {
+  return (splitIndex: number): [AsyncIterable<E>, AsyncIterable<E>] => {
     const itr = source[Symbol.asyncIterator]();
-    let i = 0;
+    let index = 0;
     let leftComplete = false;
     function fetchNext() {
-      if (i < index) i++;
+      if (index < splitIndex) index++;
       else leftComplete = true;
       return itr.next();
     }
@@ -18,7 +18,7 @@ export function makeSplitAt<E>(source: AsyncIterable<E>) {
     let tail: Link<E> | null = null;
     function push() {
       const result = fetchNext();
-      const link: Link<E> = { result, next: null, index: i };
+      const link: Link<E> = { result, next: null, index: index };
       if (tail === null) head = tail = link;
       else tail.next = link;
     }

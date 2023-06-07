@@ -1,7 +1,7 @@
 export function makeZipWith<E>(source: AsyncIterable<E>) {
   return <T, U>(
     other: AsyncIterable<T>,
-    zipper: (e: E, t: T) => U | Promise<U>,
+    zipper: (element: E, other: T) => U | Promise<U>,
   ): AsyncIterable<U> => {
     async function* zipWith() {
       const left = source[Symbol.asyncIterator]();

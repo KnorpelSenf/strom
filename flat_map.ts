@@ -5,9 +5,9 @@ export function makeFlatMap<E>(source: AsyncIterable<E>) {
     transform: (element: E, index: number) => StromSource<T>,
   ): AsyncIterable<T> => {
     async function* flatMap() {
-      let i = 0;
+      let index = 0;
       for await (const element of source) {
-        yield* toIterable(transform(element, i++));
+        yield* toIterable(transform(element, index++));
       }
     }
     return flatMap();

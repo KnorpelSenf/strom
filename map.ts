@@ -3,9 +3,9 @@ export function makeMap<E>(source: AsyncIterable<E>) {
     transform: (element: E, index: number) => T | Promise<T>,
   ): AsyncIterable<T> => {
     async function* map() {
-      let i = 0;
+      let index = 0;
       for await (const element of source) {
-        yield await transform(element, i++);
+        yield await transform(element, index++);
       }
     }
     return map();
