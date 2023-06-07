@@ -20,7 +20,10 @@ export function makeSpan<E>(source: AsyncIterable<E>) {
     let tail: Link<E> | null = null;
     let headR: IteratorResult<E> | null = null;
     async function push() {
-      while (op !== undefined) await op;
+      if (op !== undefined) {
+        await op;
+        return;
+      }
       op = fetchNext();
       const result = await op;
       if (leftComplete) {
@@ -33,7 +36,7 @@ export function makeSpan<E>(source: AsyncIterable<E>) {
     }
     async function pullLeft(): Promise<IteratorResult<E>> {
       if (leftComplete) return { done: true, value: undefined };
-      await push();
+      if (head === null) await push();
       if (leftComplete) return { done: true, value: undefined };
       const remove = head!;
       if (head === tail) head = tail = null;

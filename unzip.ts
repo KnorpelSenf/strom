@@ -21,7 +21,10 @@ export function makeUnzip<E>(source: AsyncIterable<E>) {
     let headR: Link<U> | null = null;
     let tailR: Link<U> | null = null;
     async function push() {
-      while (op !== undefined) await op;
+      if (op !== undefined) {
+        await op;
+        return;
+      }
       op = fetchNext();
       const [resultL, resultR] = await op;
 
@@ -34,14 +37,14 @@ export function makeUnzip<E>(source: AsyncIterable<E>) {
       else tailR.next = linkR;
     }
     async function pullLeft(): Promise<IteratorResult<T>> {
-      if (headL === null) await push();
+      while (headL === null) await push();
       const remove = headL!;
       if (headL === tailL) headL = tailL = null;
       else headL = remove.next;
       return remove.result;
     }
     async function pullRight(): Promise<IteratorResult<U>> {
-      if (headR === null) await push();
+      while (headR === null) await push();
       const remove = headR!;
       if (headR === tailR) headR = tailR = null;
       else headR = remove.next;

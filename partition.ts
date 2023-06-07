@@ -20,7 +20,10 @@ export function makePartition<E>(source: AsyncIterable<E>) {
     let headR: Link<E> | null = null;
     let tailR: Link<E> | null = null;
     async function push() {
-      while (op !== undefined) await op;
+      if (op !== undefined) {
+        const { result } = await op;
+        return result.done;
+      }
       op = fetchNext();
       const { result, left } = await op;
       const link: Link<E> = { result, next: null };
