@@ -17,7 +17,10 @@ export function makeBuffer<E>(source: AsyncIterable<E>) {
         buffer[write] = itr.next();
         write = (write + 1) % size;
         count++;
-        content?.resolve();
+        if (content !== undefined) {
+          content.resolve();
+          content = undefined;
+        }
       }
     }
 
@@ -28,7 +31,10 @@ export function makeBuffer<E>(source: AsyncIterable<E>) {
         buffer[read] = undefined;
         read = (read + 1) % size;
         count--;
-        space?.resolve();
+        if (space !== undefined) {
+          space.resolve();
+          space = undefined;
+        }
         const { done, value } = await element;
         if (done) complete = true;
         else yield value;
