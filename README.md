@@ -10,7 +10,7 @@ The ultimate streaming library for Deno.
 strom lets you morph iterators in concise functional ways:
 
 ```ts
-strom([3, 1, 4])
+await strom([3, 1, 4])
   .map((x) => [x, x * x])
   .filter(([, sq]) => sq < 10)
   .run(console.log);
