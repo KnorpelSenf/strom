@@ -34,9 +34,10 @@ for await (const elem of doubleItr()) {
 console.timeEnd("iterators");
 
 console.time("strom");
-const concurrent = strom(values(), { buffer: 3 })
+const concurrent = strom(values())
   .map(inc)
-  .map(double);
+  .map(double)
+  .buffer(3);
 for await (const elem of concurrent) {
   console.log("computed", elem);
 }

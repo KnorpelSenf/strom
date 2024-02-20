@@ -21,7 +21,7 @@ strom([3, 1, 4])
 strom is async. This means that all elements are passed lazily only once they
 are needed—just like with async iterators!
 
-If you build longer chains of async iterators, this usually always comes with a
+In JavaScript, if you build longer chains of async iterators, this comes with a
 performance penalty. Several async iterators will be run in sequence, lacking
 concurrency. We will now see how strom is much faster than plain old iterators.
 
@@ -115,15 +115,16 @@ strom: 9016ms
 So strom does the same thing as iterators by default (just in a more concise
 way).
 
-Let's speed things up by allowing strom to buffer elements in between. That way,
+Let's speed things up by allowing strom to buffer elements. That way,
 it can already fetch the next element while processing the current one, which
 gives us full concurrency!
 
 ```ts
 console.time("strom");
-const iter = strom(values(), { buffer: 5 })
+const iter = strom(values())
   .map(inc)
-  .map(double);
+  .map(double)
+  .buffer(5);
 for await (const elem of iter) {
   console.log("computed", elem);
 }
