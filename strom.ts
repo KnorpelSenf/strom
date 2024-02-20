@@ -17,6 +17,8 @@ import { makeFlatMap } from "./flat_map.ts";
 import { makeSequential } from "./sequential.ts";
 import { makeAll } from "./all.ts";
 import { makeAny } from "./any.ts";
+import { makeBatch } from "./batch.ts";
+import { makeTakeWhile } from "./take_while.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -51,7 +53,7 @@ function fromUnwrapped<E>(
         next(): IteratorResult<Promise<IteratorResult<E>>> {
           async function convert(): Promise<IteratorResult<E>> {
             const res: IteratorResult<E> = await it.next();
-            if (res.done) return { done: true, value: undefined };
+            if (res.done) return res;
             else return { done: false, value: res.value };
           }
           return { done: false, value: convert() };
@@ -93,9 +95,13 @@ export interface Strom<E>
    *
    * @param predicate A predicate determining the prefix
    */
-  // takeWhile(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Strom<E>;
+  takeWhile<T extends E>(
+    predicate: (element: E, index: number) => element is T,
+  ): Strom<T>;
+  takeWhile(
+    predicate: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Strom<E>;
+  takeWhile(): Strom<NonNullable<E>>;
   /**
    * Drops the first given number of elements.
    *
@@ -189,7 +195,7 @@ export interface Strom<E>
    *
    * @param count Number of elements in a tuple
    */
-  // batch(count: number): Strom<E[]>;
+  batch(count: number): Strom<E[]>;
 
   // Compose or decompose
   /**
@@ -463,10 +469,12 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const take = makeTake(source);
       return hydrate(take(count));
     },
-    // takeWhile(predicate) {
-    //   const takeWhile = makeTakeWhile(source);
-    //   return strom(takeWhile(predicate));
-    // },
+    takeWhile(...args: []) {
+      const takeWhile = makeTakeWhile(source);
+      return hydrate(
+        takeWhile(...args) as Iterable<Promise<IteratorResult<NonNullable<E>>>>,
+      );
+    },
     // drop(count) {
     //   const drop = makeDrop(source);
     //   return strom(drop(count));
@@ -524,10 +532,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     // lines() {
     //   return this.split(/\r?\n/);
     // },
-    // batch(count) {
-    //   const batch = makeBatch(source);
-    //   return strom(batch(count));
-    // },
+    batch(count) {
+      const batch = makeBatch(source);
+      return hydrate(batch(count));
+    },
     // Compose or decompose
     async head() {
       const head = makeHead(source);
