@@ -491,7 +491,9 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     },
     flatMap(transform) {
       const flatMap = makeFlatMap(source);
-      return hydrate(flatMap((elem, i) => toPromiseIterable(transform(elem, i))));
+      return hydrate(
+        flatMap((elem, i) => toPromiseIterable(transform(elem, i))),
+      );
     },
     // encode() {
     //   const encode = makeEncode(source as AsyncIterable<string>);

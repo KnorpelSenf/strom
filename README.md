@@ -115,9 +115,9 @@ strom: 9016ms
 So strom does the same thing as iterators by default (just in a more concise
 way).
 
-Let's speed things up by allowing strom to buffer elements. That way,
-it can already fetch the next element while processing the current one, which
-gives us full concurrency!
+Let's speed things up by allowing strom to buffer elements. That way, it can
+already fetch the next element while processing the current one, which gives us
+full concurrency!
 
 ```ts
 console.time("strom");
