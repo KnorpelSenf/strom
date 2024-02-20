@@ -14,6 +14,7 @@ import { makeTake } from "./take.ts";
 import { makeUnique } from "./unique.ts";
 import { makeAppend } from "./append.ts";
 import { makeFlatMap } from "./flat_map.ts";
+import { makeSequential } from "./sequential.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -416,6 +417,10 @@ export interface Strom<E>
    * @param size Number of elements to buffer
    */
   buffer(size?: number): Strom<E>;
+  /**
+   * Forces all elements to pass through sequentially.
+   */
+  sequential(): Strom<E>;
 
   // Debug
   /**
@@ -660,6 +665,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     buffer(size) {
       const buffer = makeBuffer(source);
       return hydrate(buffer(size));
+    },
+    sequential() {
+      const seq = makeSequential(source);
+      return hydrate(seq());
     },
     // Debug
     // peek(callback) {
