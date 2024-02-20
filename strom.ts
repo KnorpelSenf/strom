@@ -1,6 +1,7 @@
 import { type Deferred, deferred } from "./deps/std.ts";
 
 import { makeParallel } from "./parallel.ts";
+import { makePrepend } from "./prepend.ts";
 import { makeCount } from "./count.ts";
 import { makeFilter } from "./filter.ts";
 import { makeHead } from "./head.ts";
@@ -135,7 +136,7 @@ export interface Strom<E>
    *
    * @param others Stroms to yield before this strom.
    */
-  // prepend(...others: StromSource<E>[]): Strom<E>;
+  prepend(...others: StromSource<E>[]): Strom<E>;
   /**
    * Appends a number of stroms to this strom, yielding their elements after
    * this strom's elements.
@@ -488,10 +489,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       return hydrate(unique());
     },
     // // Concatenate
-    // prepend(...others) {
-    //   const prepend = makePrepend(source);
-    //   return strom(prepend(...others));
-    // },
+    prepend(...others) {
+      const prepend = makePrepend(source);
+      return hydrate(prepend(...others.map(toPromiseIterable)));
+    },
     append(...others) {
       const append = makeAppend(source);
       return hydrate(append(...others.map(toPromiseIterable)));
