@@ -10,6 +10,7 @@ import { makeReduce } from "./reduce.ts";
 import { makeTail } from "./tail.ts";
 import { makeToArray } from "./to_array.ts";
 import { makeZip } from "./zip.ts";
+import { makeTake } from "./take.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -78,7 +79,7 @@ export interface Strom<E>
    *
    * @param count The number of elements to take.
    */
-  // take(count: number): Strom<E>;
+  take(count: number): Strom<E>;
   /**
    * Returns the longest prefix of the strom which contains elements that
    * satisfy a given predicate, or elements that are not nullish if no predicate
@@ -438,19 +439,19 @@ export interface Strom<E>
 export function strom<E>(source: StromSource<E>): Strom<E> {
   return hydrate(toPromiseIterable(source));
 }
-function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
+function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
   return {
     // Remove elements
     filter(...args: []) {
-      const filter = makeFilter(itr);
+      const filter = makeFilter(source);
       return hydrate(
         filter(...args) as Iterable<Promise<IteratorResult<NonNullable<E>>>>,
       );
     },
-    // take(count) {
-    //   const take = makeTake(source);
-    //   return strom(take(count));
-    // },
+    take(count) {
+      const take = makeTake(source);
+      return hydrate(take(count));
+    },
     // takeWhile(predicate) {
     //   const takeWhile = makeTakeWhile(source);
     //   return strom(takeWhile(predicate));
@@ -482,7 +483,7 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     // },
     // Transform
     map(transform) {
-      const map = makeMap(itr);
+      const map = makeMap(source);
       return hydrate(map(transform));
     },
     // flatMap(transform) {
@@ -516,11 +517,11 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     // },
     // Compose or decompose
     async head() {
-      const head = makeHead(itr);
+      const head = makeHead(source);
       return await head();
     },
     tail() {
-      const tail = makeTail(itr);
+      const tail = makeTail(source);
       return hydrate(tail());
     },
     // init() {
@@ -552,7 +553,7 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   return [strom(before), toStrom(after)];
     // },
     zip(other) {
-      const zip = makeZip(itr);
+      const zip = makeZip(source);
       return hydrate(zip(toPromiseIterable(other)));
     },
     // zipWith(other, zipper) {
@@ -584,7 +585,7 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   return ret as any;
     // },
     async toArray(buffer) {
-      const toArray = makeToArray(itr);
+      const toArray = makeToArray(source);
       return await toArray(buffer);
     },
     // async toString() {
@@ -594,16 +595,16 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   return ret as any;
     // },
     run(callback) {
-      const run = makeRun(itr);
+      const run = makeRun(source);
       return run(callback);
     },
     // Reduce
     async reduce(combine, initial) {
-      const reduce = makeReduce(itr);
+      const reduce = makeReduce(source);
       return await reduce(combine, initial);
     },
     async count() {
-      const count = makeCount(itr);
+      const count = makeCount(source);
       return await count();
     },
     // async some(predicate) {
@@ -652,7 +653,7 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     // },
     // Concurrency
     buffer(size) {
-      const buffer = makeBuffer(itr);
+      const buffer = makeBuffer(source);
       return hydrate(buffer(size));
     },
     // Debug
@@ -661,13 +662,13 @@ function hydrate<E>(itr: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   return strom(peek(callback));
     // },
     log(logger) {
-      const log = makeLog(itr);
+      const log = makeLog(source);
       return hydrate(log(logger));
     },
     // Interop
-    [Symbol.iterator]: itr[Symbol.iterator],
+    [Symbol.iterator]: source[Symbol.iterator],
     async *[Symbol.asyncIterator]() {
-      for (const promise of itr) {
+      for (const promise of source) {
         const elem = await promise;
         if (elem.done) break;
         yield elem.value;
