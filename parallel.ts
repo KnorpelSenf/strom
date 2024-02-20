@@ -31,8 +31,7 @@ export function makeParallel<E>(source: Iterable<Promise<IteratorResult<E>>>) {
           }
         }
 
-        async function pull() {
-          if (count === 0) await (content = deferred());
+        function pull(): IteratorResult<Promise<IteratorResult<E>>> {
           const res = buffer[read]!;
           buffer[read] = undefined;
           read = (read + 1) % size;
@@ -41,13 +40,18 @@ export function makeParallel<E>(source: Iterable<Promise<IteratorResult<E>>>) {
             space.resolve();
             space = undefined;
           }
-          return res;
+          return { done: false, value: res };
         }
 
         pushAll();
         return {
           next(): IteratorResult<Promise<IteratorResult<E>>> {
-            return { done: false, value: pull() };
+            return count > 0 ? pull() : {
+              done: false,
+              value: (content = deferred()).then(pull).then((res) =>
+                res.done ? { done: true, value: undefined } : res.value
+              ),
+            };
           },
         };
       },
