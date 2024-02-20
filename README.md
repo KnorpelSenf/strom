@@ -13,7 +13,7 @@ strom lets you morph iterators in concise functional ways:
 strom([3, 1, 4])
   .map((x) => [x, x * x])
   .filter(([, sq]) => sq < 10)
-  .run(console.log);
+  .run((pair) => console.log(pair));
 // [ 3, 9 ]
 // [ 1, 1 ]
 ```
@@ -91,9 +91,7 @@ Let's look at the same code written with strom:
 
 ```ts
 console.time("strom");
-const iter = strom(values())
-  .map(inc)
-  .map(double);
+const iter = strom(values()).map(inc).map(double);
 for await (const elem of iter) {
   console.log("computed", elem);
 }
@@ -121,10 +119,7 @@ full concurrency!
 
 ```ts
 console.time("strom");
-const iter = strom(values())
-  .map(inc)
-  .map(double)
-  .buffer(5);
+const iter = strom(values()).map(inc).map(double).buffer(5);
 for await (const elem of iter) {
   console.log("computed", elem);
 }
