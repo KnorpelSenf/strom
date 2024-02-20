@@ -25,9 +25,9 @@ function toPromiseIterable<E>(
   source: StromSource<E>,
 ): Iterable<Promise<IteratorResult<E>>> {
   if (Symbol.iterator in source) {
-    return fromUnwrapped(source[Symbol.iterator]);
+    return fromUnwrapped(() => source[Symbol.iterator]());
   } else if (Symbol.asyncIterator in source) {
-    return fromUnwrapped(source[Symbol.asyncIterator]);
+    return fromUnwrapped(() => source[Symbol.asyncIterator]());
   } else if ("stream" in source) {
     return toPromiseIterable(source.stream());
   } else {
