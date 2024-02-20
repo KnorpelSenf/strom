@@ -15,6 +15,8 @@ import { makeUnique } from "./unique.ts";
 import { makeAppend } from "./append.ts";
 import { makeFlatMap } from "./flat_map.ts";
 import { makeSequential } from "./sequential.ts";
+import { makeAll } from "./all.ts";
+import { makeAny } from "./any.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -351,13 +353,13 @@ export interface Strom<E>
    * truthy, `true` is returned. Returns `false` as soon as the first element is
    * falsy, whithout inspecting any subsequent elements.
    */
-  // all(): Promise<boolean>;
+  all(): Promise<boolean>;
   /**
    * Tests the elements of the strom for being truthy. If no element is truthy,
    * `false` is returned. Returns `true` as soon as the first element is truthy,
    * whithout inspecting any subsequent elements.
    */
-  // any(): Promise<boolean>;
+  any(): Promise<boolean>;
   /**
    * Checks if any of the elements in the strom is strictly equal (`===`) to the
    * given element. Returns `true` as soon as the first element is equal,
@@ -626,14 +628,14 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   const every = makeEvery(source);
     //   return await every(predicate);
     // },
-    // async all() {
-    //   const all = makeAll(source);
-    //   return await all();
-    // },
-    // async any() {
-    //   const any = makeAny(source);
-    //   return await any();
-    // },
+    async all() {
+      const all = makeAll(source);
+      return await all();
+    },
+    async any() {
+      const any = makeAny(source);
+      return await any();
+    },
     // async contains(element) {
     //   const contains = makeContains(source);
     //   return await contains(element);
