@@ -1,28 +1,5 @@
+import { dequeue, empty, enqueue, isEmpty } from "./deps/queue.ts";
 import { type Deferred, deferred } from "./deps/std.ts";
-
-type Link<T> = null | { elem: T; link: Link<T> };
-interface List<T> {
-  head: Link<T>;
-  tail: Link<T>;
-}
-function empty<T>(): List<T> {
-  return { head: null, tail: null };
-}
-function enqueue<T>(list: List<T>, elem: T) {
-  const link: Link<T> = { elem, link: null };
-  if (list.tail === null) list.head = link;
-  else list.tail.link = link;
-  list.tail = link;
-}
-function dequeue<T>(list: List<T>): T {
-  if (list.head === null) throw new Error("dequeue empty list");
-  const link = list.head;
-  list.head = link.link;
-  return link.elem;
-}
-function isEmpty<T>(list: List<T>): boolean {
-  return list.head === null;
-}
 
 export function makeFilter<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (
