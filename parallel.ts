@@ -49,7 +49,7 @@ export function makeParallel<E>(source: Iterable<Promise<IteratorResult<E>>>) {
             return count > 0 ? pull() : {
               done: false,
               value: (content = deferred()).then(pull).then((res) =>
-                res.done ? { done: true, value: undefined } : res.value
+                res.done ? res : res.value
               ),
             };
           },
