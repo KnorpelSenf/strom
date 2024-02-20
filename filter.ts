@@ -14,7 +14,8 @@ export function makeFilter<E>(source: Iterable<Promise<IteratorResult<E>>>) {
           next() {
             // eagerly fetch the next element, enqueue it
             const res = it.next();
-            if (!res.done) enqueue(values, res.value);
+            if (res.done) return { done: true, value: undefined };
+            enqueue(values, res.value);
             // concurrently wait for it to arrive unless we are first
             const resume = deferred();
             if (isEmpty(consumers)) resume.resolve();
