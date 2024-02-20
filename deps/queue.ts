@@ -19,6 +19,9 @@ export function dequeue<T>(list: List<T>): T {
   list.head = head.link;
   return head.elem;
 }
+export function peek<T>(list: List<T>): T | undefined {
+  return list.head?.elem;
+}
 export function isEmpty<T>(list: List<T>): boolean {
   return list.head === null;
 }
