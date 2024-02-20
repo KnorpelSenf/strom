@@ -37,7 +37,7 @@ console.time("strom");
 const concurrent = strom(values())
   .map(inc)
   .map(double)
-  .buffer(3);
+  .parallel(3);
 for await (const elem of concurrent) {
   console.log("computed", elem);
 }

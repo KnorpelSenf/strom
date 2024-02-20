@@ -25,7 +25,7 @@ const urls = [
 console.time();
 await strom(urls)
   .map(({ url }) => fetch(url))
-  .buffer()
+  .parallel()
   .run()
   .task();
 console.timeEnd();

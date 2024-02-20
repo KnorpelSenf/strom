@@ -1,6 +1,6 @@
 import { type Deferred, deferred } from "./deps/std.ts";
 
-import { makeBuffer } from "./buffer.ts";
+import { makeParallel } from "./parallel.ts";
 import { makeCount } from "./count.ts";
 import { makeFilter } from "./filter.ts";
 import { makeHead } from "./head.ts";
@@ -412,11 +412,12 @@ export interface Strom<E>
 
   // Concurrency
   /**
-   * Eagerly buffers as many elements as specified (default: 1).
+   * Eagerly buffers as many elements as specified (default: 1024). This will run
+   * all preceeding operations in parellel.
    *
    * @param size Number of elements to buffer
    */
-  buffer(size?: number): Strom<E>;
+  parallel(size?: number): Strom<E>;
   /**
    * Forces all elements to pass through sequentially.
    */
@@ -662,9 +663,9 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   return await findIndex(predicate);
     // },
     // Concurrency
-    buffer(size) {
-      const buffer = makeBuffer(source);
-      return hydrate(buffer(size));
+    parallel(size) {
+      const parallel = makeParallel(source);
+      return hydrate(parallel(size));
     },
     sequential() {
       const seq = makeSequential(source);

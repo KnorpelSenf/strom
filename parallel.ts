@@ -1,6 +1,6 @@
 import { type Deferred, deferred } from "./deps/std.ts";
 
-export function makeBuffer<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+export function makeParallel<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (size = 1024): Iterable<Promise<IteratorResult<E>>> => {
     return {
       [Symbol.iterator](): Iterator<Promise<IteratorResult<E>>> {

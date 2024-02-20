@@ -10,7 +10,7 @@ const problem0 = await strom(file.body)
   .init()
   .map((line) => JSON.parse(line) as { url: string })
   .map(({ url }, i) => (console.log(i, url), fetch(url)))
-  .buffer(20)
+  .parallel(20)
   .map((r, i) => (console.log(i), r.status))
   .toArray(Array<number>(20));
 

@@ -119,7 +119,7 @@ full concurrency!
 
 ```ts
 console.time("strom");
-const iter = strom(values()).map(inc).map(double).buffer(5);
+const iter = strom(values()).map(inc).map(double).parallel(5);
 for await (const elem of iter) {
   console.log("computed", elem);
 }
