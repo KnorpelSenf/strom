@@ -6,10 +6,9 @@ export function makeTake<E>(source: Iterable<Promise<IteratorResult<E>>>) {
         const itr = source[Symbol.iterator]();
         return {
           next() {
-            if (remaining-- === 0) return { done: true, value: undefined };
-            const result = itr.next();
-            if (result.done) return { done: true, value: undefined };
-            return { done: false, value: result.value };
+            if (remaining === 0) return { done: true, value: undefined };
+            remaining--;
+            return itr.next();
           },
         };
       },

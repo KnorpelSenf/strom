@@ -13,7 +13,7 @@ export function makeUnique<E>(source: Iterable<Promise<IteratorResult<E>>>) {
           next() {
             // eagerly fetch the next element, enqueue it
             const res = it.next();
-            if (res.done) return { done: true, value: undefined };
+            if (res.done) return res;
             enqueue(values, res.value);
             // concurrently wait for it to arrive unless we are first
             const resume = deferred();
@@ -25,7 +25,7 @@ export function makeUnique<E>(source: Iterable<Promise<IteratorResult<E>>>) {
               while (!isEmpty(values)) {
                 // dequeue, test, return
                 const val = await dequeue(values);
-                if (val.done) return { done: true, value: undefined };
+                if (val.done) return val;
                 if (!set.has(val.value)) {
                   set.add(val.value);
                   return val;
