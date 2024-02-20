@@ -10,11 +10,11 @@ export function makeMap<E>(source: Iterable<Promise<IteratorResult<E>>>) {
           next() {
             const i = index++;
             const res = it.next();
-            if (res.done) return { done: true, value: undefined };
+            if (res.done) return res;
             return {
               done: false,
               value: res.value.then(async (r): Promise<IteratorResult<T>> => {
-                if (r.done) return { done: true, value: undefined };
+                if (r.done) return r;
                 else return { done: false, value: await transform(r.value, i) };
               }),
             };

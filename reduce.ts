@@ -6,9 +6,9 @@ export function makeReduce<E>(source: Iterable<Promise<IteratorResult<E>>>) {
     const itr = source[Symbol.iterator]();
     async function unwrapNext(): Promise<IteratorResult<E>> {
       const result = itr.next();
-      if (result.done) return { done: true, value: undefined };
+      if (result.done) return result;
       const res = await result.value;
-      if (res.done) return { done: true, value: undefined };
+      if (res.done) return res;
       return res;
     }
 

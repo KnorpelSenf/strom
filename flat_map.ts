@@ -13,9 +13,9 @@ export function makeFlatMap<E>(source: Iterable<Promise<IteratorResult<E>>>) {
           IteratorResult<Iterator<Promise<IteratorResult<T>>>>
         > {
           const cur = it.next();
-          if (cur.done) return { done: true, value: undefined };
+          if (cur.done) return cur;
           const res = await cur.value;
-          if (res.done) return { done: true, value: undefined };
+          if (res.done) return res;
           const elem = res.value;
           const nested = transform(elem, index++);
           return { done: false, value: nested[Symbol.iterator]() };
