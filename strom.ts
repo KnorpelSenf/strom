@@ -12,6 +12,7 @@ import { makeToArray } from "./to_array.ts";
 import { makeZip } from "./zip.ts";
 import { makeTake } from "./take.ts";
 import { makeUnique } from "./unique.ts";
+import { makeAppend } from "./append.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -131,7 +132,7 @@ export interface Strom<E>
    *
    * @param others Stroms to yield after this strom.
    */
-  // append(...others: StromSource<E>[]): Strom<E>;
+  append(...others: StromSource<E>[]): Strom<E>;
   /**
    * Intersperses a given element between each two elements in the strom.
    *
@@ -474,10 +475,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   const prepend = makePrepend(source);
     //   return strom(prepend(...others));
     // },
-    // append(...others) {
-    //   const append = makeAppend(source);
-    //   return strom(append(...others));
-    // },
+    append(...others) {
+      const append = makeAppend(source);
+      return hydrate(append(...others.map(toPromiseIterable)));
+    },
     // intersperse(separator) {
     //   const intersperse = makeIntersperse(source);
     //   return strom(intersperse(separator));

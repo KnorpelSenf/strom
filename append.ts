@@ -1,12 +1,10 @@
-import { type StromSource, toIterable } from "./source.ts";
-
 export function makeAppend<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (
-    ...others: StromSource<E>[]
+    ...others: Iterable<Promise<IteratorResult<E>>>[]
   ): Iterable<Promise<IteratorResult<E>>> => {
-    async function* append() {
+    function* append() {
       yield* source;
-      for (const other of others) yield* toIterable(other);
+      for (const other of others) yield* other;
     }
     return append();
   };
