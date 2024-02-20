@@ -13,6 +13,7 @@ import { makeZip } from "./zip.ts";
 import { makeTake } from "./take.ts";
 import { makeUnique } from "./unique.ts";
 import { makeAppend } from "./append.ts";
+import { makeFlatMap } from "./flat_map.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -153,9 +154,9 @@ export interface Strom<E>
    *
    * @param transform A function mapping one value to many
    */
-  // flatMap<T>(
-  //   transform: (element: E, index: number) => StromSource<T>,
-  // ): Strom<T>;
+  flatMap<T>(
+    transform: (element: E, index: number) => StromSource<T>,
+  ): Strom<T>;
   /**
    * Turns string elements into Uint8Array elements by encoding them to UTF-8.
    * Requires this strom to be a strom of string elements.
@@ -488,10 +489,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const map = makeMap(source);
       return hydrate(map(transform));
     },
-    // flatMap(transform) {
-    //   const flatMap = makeFlatMap(source);
-    //   return strom(flatMap(transform));
-    // },
+    flatMap(transform) {
+      const flatMap = makeFlatMap(source);
+      return hydrate(flatMap((elem, i) => toPromiseIterable(transform(elem, i))));
+    },
     // encode() {
     //   const encode = makeEncode(source as AsyncIterable<string>);
     //   const ret: Strom<Uint8Array> = strom(encode());
