@@ -2,7 +2,7 @@
   "lock": false,
   "tasks": {
     "check": "deno cache --check=all mod.ts",
-    "test": "deno test test",
+    "test": "deno test ./tests/*",
     "dev": "deno fmt && deno lint && deno task test && deno task check",
     "coverage": "deno task test --coverage=test/cov_profile && deno coverage --lcov --output=coverage.lcov test/cov_profile",
     "report": "genhtml coverage.lcov --output-directory test/coverage/ && echo 'Point your browser to test/coverage/index.html to see the test coverage report.'"
