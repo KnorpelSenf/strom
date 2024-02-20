@@ -1,47 +1,56 @@
 import { type Deferred, deferred } from "./deps/std.ts";
 
-export function makeBuffer<E>(source: AsyncIterable<E>) {
-  return (size = 1): AsyncIterable<E> => {
-    let complete = false;
-    let count = 0;
-    let write = 0;
-    let read = 0;
-    let content: Deferred<void> | undefined;
-    let space: Deferred<void> | undefined;
-    const buffer = Array<Promise<IteratorResult<E>> | undefined>(size);
+export function makeBuffer<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (size = 1024): Iterable<Promise<IteratorResult<E>>> => {
+    return {
+      [Symbol.iterator](): Iterator<Promise<IteratorResult<E>>> {
+        let count = 0;
+        let write = 0;
+        let read = 0;
+        let space: Deferred<void> | undefined;
+        let content: Deferred<void> | undefined;
+        const buffer = Array<Promise<IteratorResult<E>> | undefined>(size);
 
-    async function push() {
-      const itr = source[Symbol.asyncIterator]();
-      while (!complete) {
-        if (count === size) await (space = deferred());
-        buffer[write] = itr.next();
-        write = (write + 1) % size;
-        count++;
-        if (content !== undefined) {
-          content.resolve();
-          content = undefined;
+        async function pushAll() {
+          const it = source[Symbol.iterator]();
+          let complete = false;
+          while (!complete) {
+            if (count === size) await (space = deferred());
+            const res = it.next();
+            if (res.done) break;
+            res.value.then((v) => {
+              if (v.done) complete = true;
+            });
+            buffer[write] = res.value;
+            write = (write + 1) % size;
+            count++;
+            if (content !== undefined) {
+              content.resolve();
+              content = undefined;
+            }
+          }
         }
-      }
-    }
 
-    async function* pull() {
-      while (!complete) {
-        if (count === 0) await (content = deferred());
-        const element = buffer[read]!;
-        buffer[read] = undefined;
-        read = (read + 1) % size;
-        count--;
-        if (space !== undefined) {
-          space.resolve();
-          space = undefined;
+        async function pull() {
+          if (count === 0) await (content = deferred());
+          const res = buffer[read]!;
+          buffer[read] = undefined;
+          read = (read + 1) % size;
+          count--;
+          if (space !== undefined) {
+            space.resolve();
+            space = undefined;
+          }
+          return res;
         }
-        const { done, value } = await element;
-        if (done) complete = true;
-        else yield value;
-      }
-    }
 
-    push();
-    return pull();
+        pushAll();
+        return {
+          next(): IteratorResult<Promise<IteratorResult<E>>> {
+            return { done: false, value: pull() };
+          },
+        };
+      },
+    };
   };
 }

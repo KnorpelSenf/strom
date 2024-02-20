@@ -1,5 +1,5 @@
-export function makeDrop<E>(source: AsyncIterable<E>) {
-  return (count: number): AsyncIterable<E> => {
+export function makeDrop<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (count: number): Iterable<Promise<IteratorResult<E>>> => {
     async function* drop() {
       const itr = source[Symbol.asyncIterator]();
       let result: IteratorResult<E>;

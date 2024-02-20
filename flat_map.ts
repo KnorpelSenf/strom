@@ -1,6 +1,6 @@
 import { type StromSource, toIterable } from "./source.ts";
 
-export function makeFlatMap<E>(source: AsyncIterable<E>) {
+export function makeFlatMap<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return <T>(
     transform: (element: E, index: number) => StromSource<T>,
   ): AsyncIterable<T> => {

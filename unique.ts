@@ -1,5 +1,5 @@
-export function makeUnique<E>(source: AsyncIterable<E>) {
-  return (): AsyncIterable<E> => {
+export function makeUnique<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (): Iterable<Promise<IteratorResult<E>>> => {
     async function* unique() {
       const set = new Set<E>();
       for await (const element of source) {

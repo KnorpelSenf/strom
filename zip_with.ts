@@ -1,4 +1,4 @@
-export function makeZipWith<E>(source: AsyncIterable<E>) {
+export function makeZipWith<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return <T, U>(
     other: AsyncIterable<T>,
     zipper: (element: E, other: T) => U | Promise<U>,

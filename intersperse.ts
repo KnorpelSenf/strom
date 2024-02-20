@@ -1,5 +1,7 @@
-export function makeIntersperse<E>(source: AsyncIterable<E>) {
-  return (separator: E): AsyncIterable<E> => {
+export function makeIntersperse<E>(
+  source: Iterable<Promise<IteratorResult<E>>>,
+) {
+  return (separator: E): Iterable<Promise<IteratorResult<E>>> => {
     async function* intersperse() {
       const itr = source[Symbol.asyncIterator]();
       let result = await itr.next();

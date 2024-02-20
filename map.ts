@@ -1,13 +1,26 @@
-export function makeMap<E>(source: AsyncIterable<E>) {
+export function makeMap<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return <T>(
     transform: (element: E, index: number) => T | Promise<T>,
-  ): AsyncIterable<T> => {
-    async function* map() {
-      let index = 0;
-      for await (const element of source) {
-        yield await transform(element, index++);
-      }
-    }
-    return map();
+  ): Iterable<Promise<IteratorResult<T>>> => {
+    return {
+      [Symbol.iterator]() {
+        const it = source[Symbol.iterator]();
+        let index = 0;
+        return {
+          next() {
+            const i = index++;
+            const res = it.next();
+            if (res.done) return { done: true, value: undefined };
+            return {
+              done: false,
+              value: res.value.then(async (r): Promise<IteratorResult<T>> => {
+                if (r.done) return { done: true, value: undefined };
+                else return { done: false, value: await transform(r.value, i) };
+              }),
+            };
+          },
+        };
+      },
+    };
   };
 }

@@ -1,4 +1,4 @@
-export function makeBatch<E>(source: AsyncIterable<E>) {
+export function makeBatch<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (count: number): AsyncIterable<E[]> => {
     async function* collect() {
       const itr = source[Symbol.asyncIterator]();

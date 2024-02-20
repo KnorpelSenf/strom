@@ -1,4 +1,4 @@
-export function makeProduct<E>(source: AsyncIterable<E>) {
+export function makeProduct<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return async (): Promise<E> => {
     const itr = source[Symbol.asyncIterator]();
     let result = await itr.next();

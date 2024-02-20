@@ -1,4 +1,4 @@
-export function makeMax<E>(source: AsyncIterable<E>) {
+export function makeMax<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return async (
     compare?: (l: E, r: E) => number | Promise<number>,
   ): Promise<E> => {

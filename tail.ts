@@ -1,9 +1,9 @@
-export function makeTail<E>(source: AsyncIterable<E>) {
-  return (): AsyncIterable<E> => {
-    async function* tail() {
-      const itr = source[Symbol.asyncIterator]();
-      await itr.next();
-      yield* { [Symbol.asyncIterator]: () => itr };
+export function makeTail<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (): Iterable<Promise<IteratorResult<E>>> => {
+    function* tail() {
+      const itr = source[Symbol.iterator]();
+      itr.next();
+      yield* { [Symbol.iterator]: () => itr };
     }
     return tail();
   };

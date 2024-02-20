@@ -2,7 +2,7 @@ interface Link<E> {
   result: IteratorResult<E>;
   next: Link<E> | null;
 }
-export function makeUnzip<E>(source: AsyncIterable<E>) {
+export function makeUnzip<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return <T, U>(): [AsyncIterable<T>, AsyncIterable<U>] => {
     const itr = source[Symbol.asyncIterator]();
     let op: ReturnType<typeof fetchNext> | undefined;

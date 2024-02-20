@@ -2,10 +2,13 @@ interface Link<E> {
   result: IteratorResult<E>;
   next: Link<E> | null;
 }
-export function makeSpan<E>(source: AsyncIterable<E>) {
+export function makeSpan<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (
     predicate: (element: E, index: number) => boolean | Promise<boolean>,
-  ): [AsyncIterable<E>, AsyncIterable<E>] => {
+  ): [
+    Iterable<Promise<IteratorResult<E>>>,
+    Iterable<Promise<IteratorResult<E>>>,
+  ] => {
     const itr = source[Symbol.asyncIterator]();
     let index = 0;
     let leftComplete = false;

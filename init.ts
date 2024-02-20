@@ -1,5 +1,5 @@
-export function makeInit<E>(source: AsyncIterable<E>) {
-  return (): AsyncIterable<E> => {
+export function makeInit<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (): Iterable<Promise<IteratorResult<E>>> => {
     async function* init() {
       const itr = source[Symbol.asyncIterator]();
       let result = await itr.next();

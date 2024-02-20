@@ -1,20 +1,30 @@
-export function makeReduce<E>(source: AsyncIterable<E>) {
+export function makeReduce<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return async <T>(
     combine: (acc: T, element: E, index: number) => T | Promise<T>,
     acc?: T,
   ): Promise<T> => {
-    const itr = source[Symbol.asyncIterator]();
+    const itr = source[Symbol.iterator]();
+    async function unwrapNext(): Promise<IteratorResult<E>> {
+      const result = itr.next();
+      if (result.done) return { done: true, value: undefined };
+      const res = await result.value;
+      if (res.done) return { done: true, value: undefined };
+      return res;
+    }
+
     let index = 0;
-    let result: IteratorResult<E>;
+    // use first element if no inital value was given
     if (acc === undefined) {
-      result = await itr.next();
+      const result = await unwrapNext();
       if (result.done) {
         throw new Error("Reduce of empty strom with no initial value");
       }
       index = 1;
-      acc = result.value as unknown as T;
+      const inital: E = result.value;
+      acc = inital as unknown as T;
     }
-    while (!(result = await itr.next()).done) {
+    let result: IteratorResult<E>;
+    while (!(result = await unwrapNext()).done) {
       acc = await combine(acc, result.value, index++);
     }
     return acc;

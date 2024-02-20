@@ -1,5 +1,7 @@
-export function makePop<E>(source: AsyncIterable<E>) {
-  return async (): Promise<[E | undefined, AsyncIterable<E>]> => {
+export function makePop<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return async (): Promise<
+    [E | undefined, Iterable<Promise<IteratorResult<E>>>]
+  > => {
     const itr = source[Symbol.asyncIterator]();
     const head = await itr.next();
     const rest = { [Symbol.asyncIterator]: () => itr };

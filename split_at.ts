@@ -3,8 +3,13 @@ interface Link<E> {
   next: Link<E> | null;
   index: number;
 }
-export function makeSplitAt<E>(source: AsyncIterable<E>) {
-  return (splitIndex: number): [AsyncIterable<E>, AsyncIterable<E>] => {
+export function makeSplitAt<E>(source: Iterable<Promise<IteratorResult<E>>>) {
+  return (
+    splitIndex: number,
+  ): [
+    Iterable<Promise<IteratorResult<E>>>,
+    Iterable<Promise<IteratorResult<E>>>,
+  ] => {
     const itr = source[Symbol.asyncIterator]();
     let index = 0;
     let leftComplete = false;

@@ -1,4 +1,4 @@
-export function makeMin<E>(source: AsyncIterable<E>) {
+export function makeMin<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return async (
     compare?: (l: E, r: E) => number | Promise<number>,
   ): Promise<E> => {

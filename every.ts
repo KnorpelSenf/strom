@@ -1,4 +1,4 @@
-export function makeEvery<E>(source: AsyncIterable<E>) {
+export function makeEvery<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return async (
     predicate: (element: E, index: number) => boolean | Promise<boolean> = (
       e,
