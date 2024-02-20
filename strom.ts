@@ -11,6 +11,7 @@ import { makeTail } from "./tail.ts";
 import { makeToArray } from "./to_array.ts";
 import { makeZip } from "./zip.ts";
 import { makeTake } from "./take.ts";
+import { makeUnique } from "./unique.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -114,7 +115,7 @@ export interface Strom<E>
    * > Note that this method requires a significant memory overhead, as it needs
    * > to keep previously yielded elements in memory.
    */
-  // unique(): Strom<E>;
+  unique(): Strom<E>;
 
   // Concatenate
   /**
@@ -464,10 +465,10 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
     //   const dropWhile = makeDropWhile(source);
     //   return strom(dropWhile(predicate));
     // },
-    // unique() {
-    //   const unique = makeUnique(source);
-    //   return strom(unique());
-    // },
+    unique() {
+      const unique = makeUnique(source);
+      return hydrate(unique());
+    },
     // // Concatenate
     // prepend(...others) {
     //   const prepend = makePrepend(source);
