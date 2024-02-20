@@ -12,19 +12,18 @@ export function makeLog<E>(source: Iterable<Promise<IteratorResult<E>>>) {
             const i = index++;
             const res = it.next();
             if (res.done) return { done: true, value: undefined };
-
-            const val = res.value;
-
-            async function pullAndLog(): Promise<IteratorResult<E>> {
-              const v = await val;
-              if (v.done) return { done: true, value: undefined };
-              const message = log(v.value, i);
-              if (typeof message === "string") console.log(message);
-              else console.log(...message);
-              return v;
-            }
-
-            return { done: false, value: pullAndLog() };
+            return {
+              done: false,
+              value: res.value.then((v) => {
+                // log things in the order they are processed,
+                // not the order in the stream
+                if (v.done) return { done: true, value: undefined };
+                const message = log(v.value, i);
+                if (typeof message === "string") console.log(message);
+                else console.log(...message);
+                return v;
+              }),
+            };
           },
         };
       },

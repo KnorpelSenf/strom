@@ -13,6 +13,8 @@ export function makeSequential<E>(
         const it = seq();
         return {
           next() {
+            // note that we currently do not short-circuit
+            // if the upstream iterator synchronously finishes
             return { done: false, value: it.next() };
           },
         };
