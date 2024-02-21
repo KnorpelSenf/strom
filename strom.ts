@@ -20,6 +20,8 @@ import { makeAll } from "./all.ts";
 import { makeAny } from "./any.ts";
 import { makeBatch } from "./batch.ts";
 import { makeTakeWhile } from "./take_while.ts";
+import { makeDrop } from "./drop.ts";
+import { makeDropWhile } from "./drop_while.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -108,7 +110,7 @@ export interface Strom<E>
    *
    * @param count The number of elements to drop.
    */
-  // drop(count: number): Strom<E>;
+  drop(count: number): Strom<E>;
   /**
    * Returns the longest prefix of the strom which contains elements that do not
    * satisfy a given predicate, or elements that are nullish if no predicate was
@@ -116,9 +118,9 @@ export interface Strom<E>
    *
    * @param predicate A predicate determining the prefix
    */
-  // dropWhile(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Strom<E>;
+  dropWhile(
+    predicate?: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Strom<E>;
   /**
    * Returns a strom with duplicate elements removed. The resulting strom only
    * contains the first occurrence of each element. The equality comparison is
@@ -476,19 +478,19 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
         takeWhile(...args) as Iterable<Promise<IteratorResult<NonNullable<E>>>>,
       );
     },
-    // drop(count) {
-    //   const drop = makeDrop(source);
-    //   return strom(drop(count));
-    // },
-    // dropWhile(predicate) {
-    //   const dropWhile = makeDropWhile(source);
-    //   return strom(dropWhile(predicate));
-    // },
+    drop(count) {
+      const drop = makeDrop(source);
+      return hydrate(drop(count));
+    },
+    dropWhile(predicate) {
+      const dropWhile = makeDropWhile(source);
+      return hydrate(dropWhile(predicate));
+    },
     unique() {
       const unique = makeUnique(source);
       return hydrate(unique());
     },
-    // // Concatenate
+    // Concatenate
     prepend(...others) {
       const prepend = makePrepend(source);
       return hydrate(prepend(...others.map(toPromiseIterable)));
