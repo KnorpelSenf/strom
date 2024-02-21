@@ -22,7 +22,9 @@ export function makeFilter<E>(source: Iterable<Promise<IteratorResult<E>>>) {
             const res = it.next();
             if (res.done) return res;
 
-            async function test(val: IteratorResult<E>) {
+            async function test(
+              val: IteratorResult<E>,
+            ): Promise<IteratorResult<Option<E>>> {
               if (val.done) return val;
               const okValue: Option<E> = await predicate(val.value, i)
                 ? { ok: true, some: val.value }
