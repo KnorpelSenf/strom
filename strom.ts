@@ -52,14 +52,16 @@ function fromUnwrapped<E>(
   return {
     [Symbol.iterator]() {
       const it = getIterator();
+
+      async function nextPromise(): Promise<IteratorResult<E>> {
+        const res: IteratorResult<E> = await it.next();
+        if (res.done) return res;
+        else return { done: false, value: res.value };
+      }
+
       return {
         next(): IteratorResult<Promise<IteratorResult<E>>> {
-          async function convert(): Promise<IteratorResult<E>> {
-            const res: IteratorResult<E> = await it.next();
-            if (res.done) return res;
-            else return { done: false, value: res.value };
-          }
-          return { done: false, value: convert() };
+          return { done: false, value: nextPromise() };
         },
       };
     },
