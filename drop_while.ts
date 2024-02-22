@@ -1,4 +1,4 @@
-import { dequeue, empty, enqueue, isEmpty } from "./deps/queue.ts";
+import { dequeue, empty, enqueue, isEmpty, peek } from "./deps/queue.ts";
 import { type Deferred, deferred } from "./deps/std.ts";
 
 interface DropTestResult<E> {
@@ -40,7 +40,7 @@ export function makeDropWhile<E>(source: Iterable<Promise<IteratorResult<E>>>) {
             // concurrently wait for it to arrive unless we are first
             const resume = deferred<void>();
             if (isEmpty(consumers)) resume.resolve();
-            else enqueue(consumers, resume);
+            enqueue(consumers, resume);
             // return a promise of the next accepted element
             async function pull(): Promise<IteratorResult<E>> {
               await resume;
@@ -60,9 +60,8 @@ export function makeDropWhile<E>(source: Iterable<Promise<IteratorResult<E>>>) {
               done: false,
               value: pull().finally(() => {
                 // notify next consumer once we're done
-                if (!isEmpty(consumers)) {
-                  dequeue(consumers).resolve();
-                }
+                if (!isEmpty(consumers)) dequeue(consumers);
+                peek(consumers)?.resolve();
               }),
             };
           },
