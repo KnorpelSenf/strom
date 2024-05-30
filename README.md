@@ -90,8 +90,9 @@ other. There is no concurrency. This is by design of the
 Let's look at the same code written with strom:
 
 ```ts
-console.time("strom");
 const iter = strom(values()).map(inc).map(double);
+
+console.time("strom");
 for await (const elem of iter) {
   console.log("computed", elem);
 }
@@ -118,8 +119,9 @@ already fetch the next element while processing the current one, which gives us
 full concurrency!
 
 ```ts
-console.time("strom");
 const iter = strom(values()).map(inc).map(double).parallel(5);
+
+console.time("strom");
 for await (const elem of iter) {
   console.log("computed", elem);
 }
