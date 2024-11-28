@@ -1,4 +1,4 @@
-import { dequeue, empty, enqueue, isEmpty, peek } from "./deps/queue.ts";
+import { dequeue, empty, enqueue, isEmpty, peek } from "./util.ts";
 import { Deferred, deferred } from "./deps/std.ts";
 
 export function makeUnique<E>(source: Iterable<Promise<IteratorResult<E>>>) {

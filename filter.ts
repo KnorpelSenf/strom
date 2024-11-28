@@ -1,4 +1,4 @@
-import { dequeue, empty, enqueue, isEmpty, peek } from "./deps/queue.ts";
+import { dequeue, empty, enqueue, isEmpty, peek } from "./util.ts";
 import { type Deferred, deferred } from "./deps/std.ts";
 
 type Option<E> = { ok: false } | { ok: true; some: E };

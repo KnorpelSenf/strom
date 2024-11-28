@@ -1,9 +1,9 @@
-import { type Deferred, deferred } from "./deps/std.ts";
-
-import { makeParallel } from "./parallel.ts";
 import { makePrepend } from "./prepend.ts";
+import { makeSplit } from "./split.ts";
+import { makeEnumerate } from "./enumerate.ts";
 import { makeCount } from "./count.ts";
 import { makeFilter } from "./filter.ts";
+import { makeIntersperse } from "./intersperse.ts";
 import { makeHead } from "./head.ts";
 import { makeLog } from "./log.ts";
 import { makeMap } from "./map.ts";
@@ -22,6 +22,9 @@ import { makeBatch } from "./batch.ts";
 import { makeTakeWhile } from "./take_while.ts";
 import { makeDrop } from "./drop.ts";
 import { makeDropWhile } from "./drop_while.ts";
+import { type Handle, makeRun } from "./run.ts";
+
+export { type Completion, type Handle } from "./run.ts";
 
 /**
  * Source for a strom. Can be any iterator.
@@ -54,6 +57,7 @@ function fromUnwrapped<E>(
       const it = getIterator();
 
       async function nextPromise(): Promise<IteratorResult<E>> {
+        // TODO: perf: provide a fast path for sync sources that save a microtask op per item
         const res: IteratorResult<E> = await it.next();
         if (res.done) return res;
         else return { done: false, value: res.value };
@@ -73,10 +77,10 @@ function fromUnwrapped<E>(
  */
 export interface Strom<E>
   extends Iterable<Promise<IteratorResult<E>>>, AsyncIterable<E> {
-  // Remove elements
+  // === Removing elements
   /**
-   * Filters down the strom based on a given predicate function, or not nullish
-   * if no predicate was specifed.
+   * Filters down the strom based on a given predicate function, or elements not
+   * being not nullish if no predicate was specifed.
    *
    * @param predicate Function to determine which elements to keep
    */
@@ -133,7 +137,7 @@ export interface Strom<E>
    */
   unique(): Strom<E>;
 
-  // Concatenate
+  // === Concatenating stroms
   /**
    * Prepends a number of stroms to this strom, yielding their elements before
    * this strom's elements.
@@ -153,9 +157,9 @@ export interface Strom<E>
    *
    * @param separator A separator element
    */
-  // intersperse(separator: E): Strom<E>;
+  intersperse(separator: E): Strom<E>;
 
-  // Transform
+  // === Transforming elements
   /**
    * Transforms every element in the strom using a given transform function.
    *
@@ -172,28 +176,46 @@ export interface Strom<E>
     transform: (element: E, index: number) => StromSource<T>,
   ): Strom<T>;
   /**
+   * Enumerates all elements in the strom. Returns a strom of pairs of the index
+   * of an element and the element itself.
+   */
+  enumerate(): Strom<[number, E]>;
+  /**
    * Turns string elements into Uint8Array elements by encoding them to UTF-8.
    * Requires this strom to be a strom of string elements.
+   *
+   * The strom is interpreted as a long chunked string. A TextEncoderStream is
+   * used under the hood.
    */
-  // encode(): E extends string ? Strom<Uint8Array> : never;
+  encode(): E extends string ? Strom<Uint8Array> : never;
   /**
    * Turns Uint8Array elements into string elements by decoding them from UTF-8.
    * Requires this strom to be a strom of Uint8Array instances.
+   *
+   * The strom is interpreted as a long chunked byte array. A TextDecoderStream
+   * is used under the hood.
    */
-  // decode(): E extends Uint8Array ? Strom<string> : never;
+  decode(): E extends Uint8Array ? Strom<string> : never;
   /**
    * When regarding a strom of string elements as one large string `s`, this
    * method returns a strom of the elements of `s`, split at a given separator
    * string (or regular expression).
    *
+   * Note that lookahead elements in the regex might not work as expected. This
+   * is because the regex will only be evaluated on a prefix of the strom. If
+   * you need to run the regex on the full data, you have to collect the strom
+   * into a single large string.
+   *
    * @param on Separator string or regular expression
    */
-  // split(on: string | RegExp): E extends string ? Strom<string> : never;
+  split(
+    on: string | string[] | RegExp,
+  ): E extends string ? Strom<string> : never;
   /**
    * Turns a strom of string elements into its lines, as determined by `\n` or
    * `\r\n`.
    */
-  // lines(): E extends string ? Strom<string> : never;
+  lines(): E extends string ? Strom<string> : never;
   /**
    * Collects a given number of elements into a tuple, and returns a strom of
    * tuples.
@@ -202,7 +224,7 @@ export interface Strom<E>
    */
   batch(count: number): Strom<E[]>;
 
-  // Compose or decompose
+  // === Composing or decomposing stroms
   /**
    * Gets the first element of the strom. Returns `undefined` if the strom has
    * no elements.
@@ -211,24 +233,24 @@ export interface Strom<E>
   /** Drops the first element of the strom. */
   tail(): Strom<E>;
   /** Drops the last element of the strom. */
-  // init(): Strom<E>;
+  init(): Strom<E>;
   /**
    * Gets the last element of the strom. Returns `undefined` if the strom has
    * no elements.
    */
-  // last(): Promise<E | undefined>;
+  last(): Promise<E | undefined>;
   /**
    * Decomposes a strom into its first element and the remaining strom. Returns
    * a pair of `undefined` and the empty strom if the strom has no elements.
    */
-  // pop(): Promise<[E | undefined, Strom<E>]>;
+  pop(): Promise<[E | undefined, Strom<E>]>;
   /**
    * Returns a pair of two stroms. The first strom contains as many elements as
    * specified. The second strom contains all remaining elements.
    *
    * @param index The number of elements in the first strom
    */
-  // splitAt(index: number): [Strom<E>, Strom<E>];
+  splitAt(index: number): [Strom<E>, Strom<E>];
   /**
    * Returns a pair of two stroms. The first strom is the longest prefix of the
    * strom which contains elements that satisfy a given predicate. The second
@@ -236,9 +258,9 @@ export interface Strom<E>
    *
    * @param predicate A predicate determining where to split the strom
    */
-  // span(
-  //   predicate: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): [Strom<E>, Strom<E>];
+  span(
+    predicate: (element: E, index: number) => boolean | Promise<boolean>,
+  ): [Strom<E>, Strom<E>];
   /**
    * Takes a predicate and returns a pair of stroms of elements that satisfy and
    * do not satisfy the given predicate, respectively. In other words, the first
@@ -248,9 +270,9 @@ export interface Strom<E>
    *
    * @param predicate A predicate
    */
-  // partition(
-  //   predicate: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): [Strom<E>, Strom<E>];
+  partition(
+    predicate: (element: E, index: number) => boolean | Promise<boolean>,
+  ): [Strom<E>, Strom<E>];
   /**
    * Zips two stroms into a strom of pairs.
    *
@@ -263,54 +285,58 @@ export interface Strom<E>
    * @param other A strom source to zip with.
    * @param zipper A zipper function to apply on pairs.
    */
-  // zipWith<T, U>(
-  //   other: StromSource<T>,
-  //   zipper: (element: E, other: T) => U | Promise<U>,
-  // ): Strom<U>;
+  zipWith<T, U>(
+    other: StromSource<T>,
+    zipper: (element: E, other: T) => U | Promise<U>,
+  ): Strom<U>;
   /**
    * Decomposes a strom of pairs in a pair of stroms. The first strom contains
    * the first elements of each pair. The second strom contains the second
    * elements of each pair. Requires this strom to be a strom of pairs.
    */
-  // unzip(): E extends [infer T, infer U] ? [Strom<T>, Strom<U>] : never;
+  unzip(): E extends [infer T, infer U] ? [Strom<T>, Strom<U>] : never;
 
-  // Collect
+  // === Collecting elements
   /**
    * Collects all elements of the strom into a set and returns it.
    *
    * @param set An optional set to modify
    */
-  // toSet(set?: Set<E>): Promise<Set<E>>;
+  toSet(set?: Set<E>): Promise<Set<E>>;
   /**
-   * Collects all elements of the strom into a map and returns it. Requires the
-   * strom to be a strom of key-value pairs.
+   * Collects all elements of the strom into a map and returns it. If several
+   * elements have the same key, later elements will override earlier ones.
+   * Requires the strom to be a strom of key-value pairs.
    *
    * @param map An optional map to modify
    */
-  // toMap(
-  //   map?: E extends [infer K, infer V] ? Map<K, V> : never,
-  // ): Promise<E extends [infer K, infer V] ? Map<K, V> : never>;
+  toMap(
+    map?: E extends [infer K, infer V] ? Map<K, V> : never,
+  ): Promise<E extends [infer K, infer V] ? Map<K, V> : never>;
   /**
-   * Collects all elements of the strom into an object and returns it. Requires
-   * the strom to be a strom of key-value pairs where the key is of type string.
+   * Collects all elements of the strom into an object and returns it. If
+   * several elements have the same key, later elements will override earlier
+   * ones. Requires the strom to be a strom of key-value pairs where the key is
+   * of type string.
    *
    * @param record An optional record to modify
    */
-  // toRecord(
-  //   record?: E extends [string, infer T] ? Record<string, T> : never,
-  // ): Promise<E extends [string, infer T] ? Record<string, T> : never>;
+  toRecord(
+    record?: E extends [PropertyKey, infer T] ? Record<E[0], T> : never,
+  ): Promise<E extends [PropertyKey, infer T] ? Record<E[0], T> : never>;
   /**
    * Collects all elements of the strom into an array and returns it. If a
    * buffer array is given, only as many elements are collected into the given
-   * array as possible without increasing the length of the array.
+   * array as possible without increasing the length of the array. Extraneous
+   * elements in the strom are discarded.
    */
   toArray(buffer?: E[]): Promise<E[]>;
   /**
-   * Concatenates all string elements of the strom. Requires the strom to be a
-   * strom of string elements. Returns the empty string if the strom has no
-   * elements.
+   * Concatenates all string elements of the strom. The strom should be a strom
+   * of string elements, but elements are converted to string otherwise. Returns
+   * the empty string if the strom has no elements.
    */
-  // toString(): Promise<E extends string ? string : never>;
+  toString(): Promise<string>;
   /**
    * Runs the strom until completion, optionally calling a callback function for
    * every element.
@@ -319,10 +345,12 @@ export interface Strom<E>
    */
   run(callback?: (element: E, index: number) => unknown): Handle;
 
-  // Reduce
+  // === Reducing the strom
   /**
    * Reduces the strom of elements into an accumulator. If no initial
-   * accumulator is given, the first element of the strom will be used.
+   * accumulator is given, the first element of the strom will be used. Throws
+   * an error if no initial element is provided and there is no element in the
+   * strom.
    *
    * @param combine A function adding the next element to the accumulator
    * @param initial An optional inital accumulator
@@ -344,9 +372,9 @@ export interface Strom<E>
    *
    * @param predicate A predicate function used to test the elements
    */
-  // some(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Promise<boolean>;
+  some(
+    predicate?: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Promise<boolean>;
   /**
    * Tests the elements of the strom against a given predicate function, or
    * tests them for not being nullish if no predicate was given. Returns `true`
@@ -356,9 +384,9 @@ export interface Strom<E>
    *
    * @param predicate A predicate function used to test the elements
    */
-  // every(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Promise<boolean>;
+  every(
+    predicate?: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Promise<boolean>;
   /**
    * Tests the elements of the strom for being truthy. If all elements are
    * truthy, `true` is returned. Returns `false` as soon as the first element is
@@ -379,54 +407,55 @@ export interface Strom<E>
    *
    * @param e An element which may be contained in the strom
    */
-  // contains(element: E): Promise<boolean>;
+  contains(element: E): Promise<boolean>;
   /**
-   * Returns the largest element of the strom. Uses `String#localeCompare` if
-   * the strom is a strom of string elements. Uses `<` otherwise. Returns
+   * Returns the largest element of the strom. Uses the given comparison
+   * function if specified. Otherwise, if the strom is a strom of string
+   * elements, `String#localeCompare` is used. Otherwise, `<` is used. Returns
    * `undefined` if the strom has no elements.
    *
    * @param compare An optional comparison function
    */
-  // max(compare?: (l: E, r: E) => number | Promise<number>): Promise<E>;
+  max(compare?: (l: E, r: E) => number | Promise<number>): Promise<E>;
   /**
-   * Returns the smallest element of the strom. Uses `String#localeCompare` if
-   * the strom is a strom of string elements. Uses `<` otherwise. Returns
+   * Returns the smallest element of the strom. Uses the given comparison
+   * function if specified. Otherwise, if the strom is a strom of string
+   * elements, `String#localeCompare` is used. Otherwise, `<` is used. Returns
    * `undefined` if the strom has no elements.
    *
    * @param compare An optional comparison function
    */
-  // min(compare?: (l: E, r: E) => number | Promise<number>): Promise<E>;
+  min(compare?: (l: E, r: E) => number | Promise<number>): Promise<E>;
   /**
    * Sums up all values of the strom using `+` on whatever values are in the
-   * strom. Returns
-   * `undefined` if the strom has no elements.
+   * strom. Returns `undefined` if the strom has no elements.
    */
-  // sum(): Promise<E>;
+  sum(): Promise<E>;
   /**
    * Multiplies all values of the strom using `*` on whatever values are in the
    * strom. Returns
    * `undefined` if the strom has no elements.
    */
-  // product(): Promise<E>;
+  product(): Promise<E>;
   /**
    * Returns the first element that matches a given predicate function, or
    * `undefined` if no such element is contained in the strom.
    */
-  // find(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Promise<E | undefined>;
+  find(
+    predicate?: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Promise<E | undefined>;
   /**
    * Returns the index of first element that matches a given predicate function,
    * or `undefined` if no such element is contained in the strom.
    */
-  // findIndex(
-  //   predicate?: (element: E, index: number) => boolean | Promise<boolean>,
-  // ): Promise<number | undefined>;
+  findIndex(
+    predicate?: (element: E, index: number) => boolean | Promise<boolean>,
+  ): Promise<number | undefined>;
 
-  // Concurrency
+  // === Concurrency
   /**
    * Eagerly buffers as many elements as specified (default: 1024). This will run
-   * all preceeding operations in parellel.
+   * all preceeding operations in parallel.
    *
    * @param size Number of elements to buffer
    */
@@ -436,16 +465,16 @@ export interface Strom<E>
    */
   sequential(): Strom<E>;
 
-  // Debug
+  // === Debugging
   /**
-   * Peeks every element in the stream. Useful if you want to perform
+   * Peeks every element in the strom. Useful if you want to perform
    * side-effects. Usually, this method should be avoided.
    *
    * @param callback A callback function peeking the elements
    */
-  // peek(callback: (element: E, index: number) => unknown): Strom<E>;
+  peek(callback: (element: E, index: number) => unknown): Strom<E>;
   /**
-   * Logs all elements in the stream.
+   * Logs all elements in the strom.
    *
    * @param logger A custom logger function
    */
@@ -463,7 +492,7 @@ export function strom<E>(source: StromSource<E>): Strom<E> {
 }
 function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
   return {
-    // Remove elements
+    // === Removing elements
     filter(...args: []) {
       const filter = makeFilter(source);
       return hydrate(
@@ -492,7 +521,8 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const unique = makeUnique(source);
       return hydrate(unique());
     },
-    // Concatenate
+
+    // === Concatenating stroms
     prepend(...others) {
       const prepend = makePrepend(source);
       return hydrate(prepend(...others.map(toPromiseIterable)));
@@ -501,10 +531,11 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const append = makeAppend(source);
       return hydrate(append(...others.map(toPromiseIterable)));
     },
-    // intersperse(separator) {
-    //   const intersperse = makeIntersperse(source);
-    //   return strom(intersperse(separator));
-    // },
+    intersperse(separator) {
+      const intersperse = makeIntersperse(source);
+      return hydrate(intersperse(separator));
+    },
+
     // Transform
     map(transform) {
       const map = makeMap(source);
@@ -516,32 +547,37 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
         flatMap((elem, i) => toPromiseIterable(transform(elem, i))),
       );
     },
-    // encode() {
-    //   const encode = makeEncode(source as AsyncIterable<string>);
-    //   const ret: Strom<Uint8Array> = strom(encode());
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any; // cast to ?:
-    // },
-    // decode() {
-    //   const decode = makeDecode(source as AsyncIterable<Uint8Array>);
-    //   const ret: Strom<string> = strom(decode());
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any; // cast to ?:
-    // },
-    // split(on) {
-    //   const split = makeSplit(source as AsyncIterable<string>);
-    //   const ret: Strom<string> = strom(split(on));
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any; // cast to ?:
-    // },
-    // lines() {
-    //   return this.split(/\r?\n/);
-    // },
+    enumerate() {
+      const enumerate = makeEnumerate(source);
+      return hydrate(enumerate());
+    },
+    encode() {
+      const enc = makeEncode(
+        source as Iterable<Promise<IteratorResult<string>>>,
+      );
+      return hydrate(enc());
+    },
+    decode() {
+      const dec = makeDecode(
+        source as Iterable<Promise<IteratorResult<Uint8Array>>>,
+      );
+      return hydrate(dec());
+    },
+    split(on) {
+      const split = makeSplit(
+        source as Iterable<Promise<IteratorResult<string>>>,
+      );
+      return hydrate(split(on));
+    },
+    lines() {
+      return this.split(["\r\n", "\n"]);
+    },
     batch(count) {
       const batch = makeBatch(source);
       return hydrate(batch(count));
     },
-    // Compose or decompose
+
+    // === Composing or decomposing stroms
     async head() {
       const head = makeHead(source);
       return await head();
@@ -550,81 +586,83 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const tail = makeTail(source);
       return hydrate(tail());
     },
-    // init() {
-    //   const init = makeInit(source);
-    //   return strom(init());
-    // },
-    // async last() {
-    //   const last = makeLast(source);
-    //   return await last();
-    // },
-    // async pop() {
-    //   const pop = makePop(source);
-    //   const [first, rest] = await pop();
-    //   return [first, strom(rest)];
-    // },
-    // splitAt(index) {
-    //   const splitAt = makeSplitAt(source);
-    //   const [before, after] = splitAt(index);
-    //   return [strom(before), toStrom(after)];
-    // },
-    // span(predicate) {
-    //   const span = makeSpan(source);
-    //   const [before, after] = span(predicate);
-    //   return [strom(before), toStrom(after)];
-    // },
-    // partition(predicate) {
-    //   const partition = makePartition(source);
-    //   const [before, after] = partition(predicate);
-    //   return [strom(before), toStrom(after)];
-    // },
+    init() {
+      const init = makeInit(source);
+      return strom(init());
+    },
+    async last() {
+      const last = makeLast(source);
+      return await last();
+    },
+    async pop() {
+      const pop = makePop(source);
+      const [first, rest] = await pop();
+      return [first, hydrate(rest)];
+    },
+    splitAt(index) {
+      const splitAt = makeSplitAt(source);
+      const [before, after] = splitAt(index);
+      return [hydrate(before), hydrate(after)];
+    },
+    span(predicate) {
+      const span = makeSpan(source);
+      const [before, after] = span(predicate);
+      return [hydrate(before), hydrate(after)];
+    },
+    partition(predicate) {
+      const partition = makePartition(source);
+      const [before, after] = partition(predicate);
+      return [hydrate(before), hydrate(after)];
+    },
     zip(other) {
       const zip = makeZip(source);
       return hydrate(zip(toPromiseIterable(other)));
     },
-    // zipWith(other, zipper) {
-    //   const zipWith = makeZipWith(source);
-    //   return strom(zipWith(toIterable(other), zipper));
-    // },
-    // unzip<T, U>() {
-    //   const unzip = makeUnzip(source);
-    //   const [left, right] = unzip<T, U>();
-    //   const ret: [Strom<T>, Strom<U>] = [strom(left), toStrom(right)];
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any; // cast to ?:
-    // },
-    // Collect
-    // toSet(set) {
-    //   const toSet = makeToSet(source);
-    //   return toSet(set);
-    // },
-    // async toMap<K, V>(map?: Map<K, V>) {
-    //   const toMap = makeToMap(source as AsyncIterable<[K, V]>);
-    //   const ret: Map<K, V> = await toMap(map);
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any; // cast to ?:
-    // },
-    // async toRecord<T>(record?: Record<string, T>) {
-    //   const toRecord = makeToRecord(source as AsyncIterable<[string, T]>);
-    //   const ret: Record<string, T> = await toRecord(record);
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any;
-    // },
+    zipWith(other, zipper) {
+      const zipWith = makeZipWith(source);
+      return strom(zipWith(toIterable(other), zipper));
+    },
+    unzip<T, U>() {
+      const unzip = makeUnzip(source);
+      const [left, right] = unzip<T, U>();
+      return [hydrate(left), hydrate(right)];
+    },
+
+    // === Collecting elements
+    toSet(set) {
+      const toSet = makeToSet(source);
+      return toSet(set);
+    },
+    async toMap<K, V>(map?: Map<K, V>) {
+      const toMap = makeToMap(
+        source as Iterable<Promise<IteratorResult<[K, V]>>>,
+      );
+      const ret: Map<K, V> = await toMap(map);
+      // deno-lint-ignore no-explicit-any
+      return ret as any; // cast to ?:
+    },
+    async toRecord<T>(record?: Record<string, T>) {
+      const toRecord = makeToRecord(
+        source as Iterable<Promise<IteratorResult<[string, T]>>>,
+      );
+      const ret: Record<string, T> = await toRecord(record);
+      // deno-lint-ignore no-explicit-any
+      return ret as any;
+    },
     async toArray(buffer) {
       const toArray = makeToArray(source);
       return await toArray(buffer);
     },
-    // async toString() {
-    //   const toString = makeToString(source);
-    //   const ret: string = await toString();
-    //   // deno-lint-ignore no-explicit-any
-    //   return ret as any;
-    // },
+    async toString() {
+      const toString = makeToString(source);
+      return await toString();
+    },
     run(callback) {
       const run = makeRun(source);
       return run(callback);
     },
-    // Reduce
+
+    // === Reducing the strom
     async reduce(combine, initial) {
       const reduce = makeReduce(source);
       return await reduce(combine, initial);
@@ -633,14 +671,14 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const count = makeCount(source);
       return await count();
     },
-    // async some(predicate) {
-    //   const some = makeSome(source);
-    //   return await some(predicate);
-    // },
-    // async every(predicate) {
-    //   const every = makeEvery(source);
-    //   return await every(predicate);
-    // },
+    async some(predicate) {
+      const some = makeSome(source);
+      return await some(predicate);
+    },
+    async every(predicate) {
+      const every = makeEvery(source);
+      return await every(predicate);
+    },
     async all() {
       const all = makeAll(source);
       return await all();
@@ -649,35 +687,36 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const any = makeAny(source);
       return await any();
     },
-    // async contains(element) {
-    //   const contains = makeContains(source);
-    //   return await contains(element);
-    // },
-    // async max(compare) {
-    //   const max = makeMax(source);
-    //   return await max(compare);
-    // },
-    // async min(compare) {
-    //   const min = makeMin(source);
-    //   return await min(compare);
-    // },
-    // async sum() {
-    //   const sum = makeSum(source);
-    //   return await sum();
-    // },
-    // async product() {
-    //   const product = makeProduct(source);
-    //   return await product();
-    // },
-    // async find(predicate) {
-    //   const find = makeFind(source);
-    //   return await find(predicate);
-    // },
-    // async findIndex(predicate) {
-    //   const findIndex = makeFindIndex(source);
-    //   return await findIndex(predicate);
-    // },
-    // Concurrency
+    async contains(element) {
+      const contains = makeContains(source);
+      return await contains(element);
+    },
+    async max(compare) {
+      const max = makeMax(source);
+      return await max(compare);
+    },
+    async min(compare) {
+      const min = makeMin(source);
+      return await min(compare);
+    },
+    async sum() {
+      const sum = makeSum(source);
+      return await sum();
+    },
+    async product() {
+      const product = makeProduct(source);
+      return await product();
+    },
+    async find(predicate) {
+      const find = makeFind(source);
+      return await find(predicate);
+    },
+    async findIndex(predicate) {
+      const findIndex = makeFindIndex(source);
+      return await findIndex(predicate);
+    },
+
+    // === Concurrency
     parallel(size) {
       const parallel = makeParallel(source);
       return hydrate(parallel(size));
@@ -686,16 +725,18 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
       const seq = makeSequential(source);
       return hydrate(seq());
     },
-    // Debug
-    // peek(callback) {
-    //   const peek = makepeek(source);
-    //   return strom(peek(callback));
-    // },
+
+    // === Debugging
+    peek(callback) {
+      const peek = makePeek(source);
+      return strom(peek(callback));
+    },
     log(logger) {
       const log = makeLog(source);
       return hydrate(log(logger));
     },
-    // Interop
+
+    // === Interop
     [Symbol.iterator]: source[Symbol.iterator],
     async *[Symbol.asyncIterator]() {
       for (const promise of source) {
@@ -704,85 +745,5 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
         yield elem.value;
       }
     },
-  };
-}
-
-/**
- * Holds information about how a strom completed.
- */
-export interface Completion {
-  /** Number of successfully processed elements */
-  count: number;
-  /** Whether the strom was run until completion */
-  done: true;
-}
-/**
- * A handle controlling how the strom is run.
- */
-export interface Handle {
-  /** A state indicating whether the strom is still active */
-  readonly state: "active" | "paused" | "closed";
-  /** Returns a promise that resolves as soon as the strom is done running */
-  task(): Promise<Completion>;
-  /** Pauses running the strom */
-  pause(): void;
-  /** Resumes running the strom */
-  resume(): void;
-  /** Catches errors that might happen during the run */
-  catch(onrejected: (reason: unknown) => unknown): Promise<Completion>;
-}
-
-function makeRun<E>(source: Iterable<Promise<IteratorResult<E>>>) {
-  return (
-    callback: (
-      element: E,
-      index: number,
-    ) => unknown | Promise<unknown> = () => {},
-  ): Handle => {
-    let state: Handle["state"] = "active";
-    let pause: Deferred<void>;
-    let handleErr = (err: unknown) => {
-      console.error(err);
-    };
-    const task = run();
-
-    async function run() {
-      let count = 0;
-      for await (const element of source) {
-        if (element.done) break;
-        if (state === "paused") await pause;
-        try {
-          await callback(element.value, count++);
-        } catch (error) {
-          handleErr(error);
-        }
-      }
-      state = "closed";
-      const result: Completion = { count, done: true };
-      return result;
-    }
-
-    const handle: Handle = {
-      get state() {
-        return state;
-      },
-      pause() {
-        state = "paused";
-        pause = deferred();
-      },
-      resume() {
-        state = "active";
-        pause.resolve();
-      },
-      catch(onrejected) {
-        handleErr = onrejected;
-        return task;
-      },
-      task() {
-        return task;
-      },
-    };
-
-    return handle;
   };
 }
