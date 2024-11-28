@@ -193,7 +193,9 @@ export interface Strom<E>
    * Requires this strom to be a strom of Uint8Array instances.
    *
    * The strom is interpreted as a long chunked byte array. A TextDecoderStream
-   * is used under the hood.
+   * is used under the hood. Note that its implementation is often sequential so
+   * you may want to buffer the strom using {@link parallel} before calling this
+   * method.
    */
   decode(): E extends Uint8Array ? Strom<string> : never;
   /**
