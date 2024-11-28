@@ -4,37 +4,52 @@ export function makeBatch<E>(source: Iterable<Promise<IteratorResult<E>>>) {
       [Symbol.iterator]() {
         const itr = source[Symbol.iterator]();
         let complete = false;
+
+        async function nextBatch(): Promise<IteratorResult<E[]>> {
+          if (complete) return { done: true, value: undefined };
+          // Synchronously iterate the source
+          const promises = Array<Promise<IteratorResult<E>>>(count);
+          let batchSize = 0;
+          for (batchSize = 0; batchSize < count; batchSize++) {
+            const res = itr.next();
+            if (res.done) {
+              promises.length = batchSize;
+              complete = true;
+              break;
+            }
+            promises[batchSize] = res.value;
+          }
+          if (batchSize === 0) return { done: true, value: undefined };
+          // Asynchronously collect the promises to a batch
+          const results = await Promise.allSettled(promises);
+          const batch = Array<E>(batchSize);
+          for (let i = 0; i < batchSize; i++) {
+            const result = results[i];
+            if (result.status === "rejected") {
+              const cause = results.filter((res) => res.status === "rejected")
+                .map((res) => res.reason);
+              throw new Error(
+                "strom source rejected with errors during batching",
+                { cause },
+              );
+            }
+            const res = result.value;
+            if (res.done) {
+              complete = true;
+              if (i === 0) return { done: true, value: undefined };
+              batch.length = i;
+              return { done: false, value: batch };
+            }
+            batch[i] = res.value;
+          }
+          return { done: false, value: batch };
+        }
+
         return {
           next() {
-            if (complete) return { done: true, value: undefined };
-            const promises = Array<Promise<IteratorResult<E>>>(count);
-            let tupleSize = 0;
-            for (; tupleSize < count; tupleSize++) {
-              const res = itr.next();
-              if (res.done) {
-                promises.length = tupleSize;
-                complete = true;
-                break;
-              }
-              promises[tupleSize] = res.value;
-            }
-            return {
-              done: false,
-              value: Promise.all(promises).then((elems) => {
-                const tuple = Array<E>(tupleSize);
-                for (let i = 0; i < tupleSize; i++) {
-                  const elem = elems[i];
-                  if (elem.done) {
-                    tuple.length = i;
-                    break;
-                  }
-                  tuple[i] = elem.value;
-                }
-                return tuple.length === 0
-                  ? { done: true, value: undefined }
-                  : { done: false, value: tuple };
-              }),
-            };
+            return complete
+              ? { done: true, value: undefined }
+              : { done: false, value: nextBatch() };
           },
         };
       },
