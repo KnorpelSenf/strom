@@ -1,5 +1,4 @@
 import { dequeue, empty, enqueue, isEmpty, peek } from "./util.ts";
-import { type Deferred, deferred } from "./deps/std.ts";
 
 interface DropTestResult<E> {
   drop: boolean;
@@ -10,7 +9,7 @@ export function makeDropWhile<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (
     predicate: (element: E, index: number) => boolean | Promise<boolean> = (
       e,
-    ) => e != null,
+    ) => e == null,
   ): Iterable<Promise<IteratorResult<E>>> => {
     return {
       [Symbol.iterator]() {
@@ -18,12 +17,12 @@ export function makeDropWhile<E>(source: Iterable<Promise<IteratorResult<E>>>) {
         let index = 0;
         let dropping = true;
         const values = empty<Promise<IteratorResult<DropTestResult<E>>>>();
-        const consumers = empty<Deferred<void>>();
+        const consumers = empty<PromiseWithResolvers<void>>();
         return {
           next() {
-            const i = index++;
             const res = it.next();
             if (!dropping || res.done) return res;
+            const i = index++;
 
             async function test(
               val: IteratorResult<E>,
@@ -38,12 +37,12 @@ export function makeDropWhile<E>(source: Iterable<Promise<IteratorResult<E>>>) {
 
             enqueue(values, res.value.then(test));
             // concurrently wait for it to arrive unless we are first
-            const resume = deferred<void>();
+            const resume = Promise.withResolvers<void>();
             if (isEmpty(consumers)) resume.resolve();
             enqueue(consumers, resume);
             // return a promise of the next accepted element
             async function pull(): Promise<IteratorResult<E>> {
-              await resume;
+              await resume.promise;
               while (!isEmpty(values)) {
                 // dequeue, test, return
                 const dropRes = await dequeue(values);
