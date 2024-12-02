@@ -1,11 +1,12 @@
-import { readableStreamFromIterable } from "./deps/std.ts";
+import { fromItr, toItr } from "./util.ts";
 
-export function makeEncode(source: AsyncIterable<string>) {
-  return (): AsyncIterable<Uint8Array> => {
-    async function* encode() {
-      yield* readableStreamFromIterable(source)
-        .pipeThrough(new TextEncoderStream());
-    }
-    return encode();
-  };
+function encode(itr: AsyncIterable<string>): AsyncIterable<Uint8Array> {
+  return ReadableStream.from(itr)
+    .pipeThrough(new TextEncoderStream());
+}
+
+export function makeEncode(
+  source: Iterable<Promise<IteratorResult<string>>>,
+) {
+  return () => fromItr(encode(toItr(source)));
 }
