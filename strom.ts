@@ -178,8 +178,11 @@ export interface Strom<E>
   /**
    * Enumerates all elements in the strom. Returns a strom of pairs of the index
    * of an element and the element itself.
+   *
+   * @param offset Optional first value for the enumeration, defaults to 0
+   * @param step Optional step size between two elements, defaults to 1
    */
-  enumerate(): Strom<[number, E]>;
+  enumerate(offset?: number, step?: number): Strom<[number, E]>;
   /**
    * Turns string elements into Uint8Array elements by encoding them to UTF-8.
    * Requires this strom to be a strom of string elements.
@@ -549,9 +552,9 @@ function hydrate<E>(source: Iterable<Promise<IteratorResult<E>>>): Strom<E> {
         flatMap((elem, i) => toPromiseIterable(transform(elem, i))),
       );
     },
-    enumerate() {
+    enumerate(offset?: number, step?: number) {
       const enumerate = makeEnumerate(source);
-      return hydrate(enumerate());
+      return hydrate(enumerate(offset, step));
     },
     encode() {
       const enc = makeEncode(
