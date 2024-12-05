@@ -3,14 +3,15 @@ export function makeFindIndex<E>(source: Iterable<Promise<IteratorResult<E>>>) {
     predicate: (element: E, index: number) => boolean | Promise<boolean> = (
       e,
     ) => e != null,
-  ): Promise<number | undefined> => {
+  ): Promise<number> => {
     let index = 0;
     for await (const element of source) {
-      if (await predicate(element, index)) {
+      if (element.done) break;
+      if (await predicate(element.value, index)) {
         return index;
       }
       index++;
     }
-    return undefined;
+    return -1;
   };
 }
