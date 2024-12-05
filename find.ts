@@ -6,8 +6,9 @@ export function makeFind<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   ): Promise<E | undefined> => {
     let index = 0;
     for await (const element of source) {
-      if (await predicate(element, index++)) {
-        return element;
+      if (element.done) break;
+      if (await predicate(element.value, index++)) {
+        return element.value;
       }
     }
     return undefined;
