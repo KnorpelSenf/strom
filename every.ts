@@ -6,7 +6,8 @@ export function makeEvery<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   ): Promise<boolean> => {
     let index = 0;
     for await (const element of source) {
-      if (!await predicate(element, index++)) {
+      if (element.done) break;
+      if (!await predicate(element.value, index++)) {
         return false;
       }
     }
