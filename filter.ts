@@ -1,5 +1,4 @@
 import { dequeue, empty, enqueue, isEmpty, peek } from "./util.ts";
-import { type Deferred, deferred } from "./deps/std.ts";
 
 type Option<E> = { ok: false } | { ok: true; some: E };
 
@@ -14,13 +13,13 @@ export function makeFilter<E>(source: Iterable<Promise<IteratorResult<E>>>) {
         const it = source[Symbol.iterator]();
         let index = 0;
         const values = empty<Promise<IteratorResult<Option<E>>>>();
-        const consumers = empty<Deferred<void>>();
+        const consumers = empty<PromiseWithResolvers<void>>();
         return {
           next() {
-            const i = index++;
             // eagerly fetch and test the next element, enqueue it
             const res = it.next();
             if (res.done) return res;
+            const i = index++;
 
             async function test(
               val: IteratorResult<E>,
@@ -34,12 +33,12 @@ export function makeFilter<E>(source: Iterable<Promise<IteratorResult<E>>>) {
 
             enqueue(values, res.value.then(test));
             // concurrently wait for it to arrive unless we are first
-            const resume = deferred();
+            const resume = Promise.withResolvers<void>();
             if (isEmpty(consumers)) resume.resolve();
             enqueue(consumers, resume);
             // return a promise of the next accepted element
             async function pull(): Promise<IteratorResult<E>> {
-              await resume;
+              await resume.promise;
               while (!isEmpty(values)) {
                 // dequeue, test, return
                 const val = await dequeue(values);
