@@ -27,8 +27,8 @@ export function makeRun<E>(source: Iterable<Promise<IteratorResult<E>>>) {
   return (
     callback: (
       element: E,
-      index: number
-    ) => unknown | Promise<unknown> = () => { }
+      index: number,
+    ) => unknown | Promise<unknown> = () => {},
   ): Handle => {
     let state: Handle["state"] = "active";
     let pause: PromiseWithResolvers<void>;
